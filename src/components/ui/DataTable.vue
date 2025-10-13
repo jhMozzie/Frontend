@@ -1,6 +1,6 @@
 <template>
-  <div class="overflow-x-auto rounded-lg shadow-sm bg-white">
-    <table class="min-w-full divide-y divide-gray-200 text-sm">
+  <div class="overflow-hidden bg-white">
+    <table class="w-full border-collapse text-sm">
       <thead class="bg-gray-50 border-b border-gray-200">
         <tr>
           <th
@@ -16,35 +16,34 @@
         </tr>
       </thead>
 
-      <tbody class="divide-y divide-gray-100">
+      <tbody>
         <tr
           v-for="(item, index) in data"
           :key="item.id || index"
-          class="hover:bg-gray-50 transition"
+          class="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
         >
           <td
             v-for="col in columns"
             :key="col.key"
-            class="px-4 py-3 text-gray-700"
+            class="px-4 py-3 text-gray-700 whitespace-nowrap"
           >
-            <!-- 👇 Si hay slot personalizado, úsalo -->
             <slot
               v-if="$slots[col.key]"
               :name="col.key"
               :item="item"
               :value="getValue(item, col.key)"
             />
-            <!-- 👇 Si no, renderiza texto normal -->
             <template v-else>{{ getValue(item, col.key) }}</template>
           </td>
 
-          <td v-if="$slots.actions" class="px-4 py-3 text-right">
+          <td v-if="$slots.actions" class="px-4 py-3 text-right whitespace-nowrap">
             <slot name="actions" :item="item" />
           </td>
         </tr>
       </tbody>
     </table>
 
+    <!-- Estado vacío -->
     <div v-if="!data || data.length === 0" class="p-6 text-center text-gray-500">
       No hay registros disponibles.
     </div>
@@ -66,3 +65,28 @@ const getValue = (obj: any, path: string) => {
   }
 }
 </script>
+
+<style scoped>
+table {
+  border-spacing: 0;
+  background-color: transparent;
+}
+
+/* ✅ Esquinas inferiores redondeadas limpias */
+tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 0.5rem;
+}
+tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 0.5rem;
+}
+
+/* 🔹 Bordes sutiles, sin líneas negras */
+tbody tr {
+  border-color: rgb(229 231 235 / 0.6); /* = gray-200 con opacidad */
+}
+
+/* 🪶 Transición más suave al hacer hover */
+tbody tr:hover td {
+  background-color: rgb(249 250 251); /* gray-50 */
+}
+</style>

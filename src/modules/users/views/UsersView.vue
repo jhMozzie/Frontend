@@ -19,88 +19,68 @@
 
     <!-- ✅ Cards estadísticas -->
     <div class="grid gap-4 md:grid-cols-4">
-      <!-- Total general -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+      <div
+        v-for="card in stats"
+        :key="card.label"
+        class="bg-white border border-gray-200 rounded-lg shadow-sm p-4"
+      >
         <div class="flex items-center justify-between">
-          <LucideUsers class="h-5 w-5 text-red-500" />
-          <span class="text-sm font-medium text-gray-600">Total Usuarios</span>
+          <component :is="card.icon" :class="['h-5 w-5', card.color]" />
+          <span class="text-sm font-medium text-gray-600">{{ card.label }}</span>
         </div>
         <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ totalUsuarios }}</p>
-          <p class="text-xs text-gray-500">Registrados en el sistema</p>
-        </div>
-      </div>
-
-      <!-- Administradores -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-        <div class="flex items-center justify-between">
-          <LucideShield class="h-5 w-5 text-rose-400" />
-          <span class="text-sm font-medium text-gray-600">Administradores</span>
-        </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ totalAdmins }}</p>
-          <p class="text-xs text-gray-500">Con permisos completos</p>
-        </div>
-      </div>
-
-      <!-- Entrenadores -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-        <div class="flex items-center justify-between">
-          <LucideDumbbell class="h-5 w-5 text-sky-400" />
-          <span class="text-sm font-medium text-gray-600">Entrenadores</span>
-        </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ totalEntrenadores }}</p>
-          <p class="text-xs text-gray-500">Activos en entrenamiento</p>
-        </div>
-      </div>
-
-      <!-- Estudiantes -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-        <div class="flex items-center justify-between">
-          <LucideGraduationCap class="h-5 w-5 text-emerald-500" />
-          <span class="text-sm font-medium text-gray-600">Estudiantes</span>
-        </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ totalEstudiantes }}</p>
-          <p class="text-xs text-gray-500">Registrados en academias</p>
+          <p class="text-2xl font-bold text-gray-800">{{ card.value }}</p>
+          <p class="text-xs text-gray-500">{{ card.desc }}</p>
         </div>
       </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div class="flex items-center justify-between p-4 border-b border-gray-200">
+    <!-- Tabla principal -->
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      <!-- Header de la tabla -->
+      <div class="flex items-center justify-between p-4 border-b border-gray-200 relative">
         <div>
           <h2 class="font-semibold text-gray-800 text-lg">Lista de Usuarios</h2>
-          <!-- ✅ Protegido contra undefined -->
           <p class="text-sm text-gray-500">
             {{ meta?.total || 0 }} usuario(s) en total • Mostrando página
             {{ meta?.page || 1 }} de {{ meta?.totalPages || 1 }}
           </p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
           <!-- Buscador -->
           <div class="relative">
             <LucideSearch class="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
             <input
               v-model="searchTerm"
               placeholder="Buscar usuarios..."
-              class="pl-8 w-[300px] border border-gray-300 rounded-md h-10 text-sm px-3 focus:ring-2 focus:ring-rose-400 outline-none"
+              class="pl-8 w-[260px] border border-gray-300 rounded-md h-10 text-sm px-3 focus:ring-2 focus:ring-rose-400 outline-none"
             />
           </div>
 
-          <!-- Filtro simple -->
-          <select
-            v-model="filters.role"
-            class="border border-gray-300 rounded-md h-10 px-2 text-sm"
+          <!-- Botón de filtro -->
+          <button
+            @click="showFilter = !showFilter"
+            class="border border-gray-300 rounded-md h-10 w-10 flex items-center justify-center hover:bg-gray-100 transition"
           >
-            <option value="all">Todos los roles</option>
-            <option value="Administrador">Administrador</option>
-            <option value="Entrenador">Entrenador</option>
-            <option value="Estudiante">Estudiante</option>
-          </select>
+            <LucideFilter class="h-4 w-4 text-gray-500" />
+          </button>
+
+          <!-- Dropdown flotante -->
+          <div
+            v-if="showFilter"
+            class="absolute right-0 top-14 bg-white border border-gray-200 rounded-md shadow-lg p-2 z-20 animate-fade-in"
+          >
+            <select
+              v-model="filters.role"
+              class="w-40 border border-gray-300 rounded-md h-9 px-2 text-sm focus:ring-1 focus:ring-rose-400"
+            >
+              <option value="all">Todos los roles</option>
+              <option value="Administrador">Administrador</option>
+              <option value="Entrenador">Entrenador</option>
+              <option value="Estudiante">Estudiante</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -118,7 +98,7 @@
         <!-- 🎨 Rol -->
         <template #role.description="{ item }">
           <span
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-300 transform hover:scale-105"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-300 hover:scale-105"
             :class="getRoleColor(item.role?.description)"
           >
             <component :is="getRoleIcon(item.role?.description)" class="h-3.5 w-3.5" />
@@ -151,12 +131,14 @@
         </template>
       </DataTable>
 
-      <!-- Paginación -->
-      <Pagination
-        :current-page="meta?.page || 1"
-        :total-pages="meta?.totalPages || 1"
-        @page-change="goToPage"
-      />
+      <!-- ✅ Paginación integrada (sin borde inferior) -->
+      <div class="p-4 bg-white flex justify-center">
+        <Pagination
+          :current-page="meta?.page || 1"
+          :total-pages="meta?.totalPages || 1"
+          @page-change="goToPage"
+        />
+      </div>
     </div>
 
     <!-- Modal -->
@@ -181,6 +163,7 @@ import {
   LucideUsers,
   LucideGraduationCap,
   LucideDumbbell,
+  LucideFilter,
 } from "lucide-vue-next";
 import Pagination from "@/components/ui/Pagination.vue";
 import UserDialog from "../components/UserDialog.vue";
@@ -188,72 +171,58 @@ import DataTable from "@/components/ui/DataTable.vue";
 import { useUserStore } from "../stores/user.store";
 import { storeToRefs } from "pinia";
 
-// ✅ Store
 const userStore = useUserStore();
-const { users, loading, error, meta } = storeToRefs(userStore);
+const { users, meta } = storeToRefs(userStore);
 
-// ✅ fallback de seguridad
-const safeMeta = computed(() => meta.value ?? { total: 0, page: 1, limit: 10, totalPages: 1 });
-const allUsers = computed(() => userStore.allUsers ?? []);
-
-// Estado local
 const searchTerm = ref("");
 const filters = ref({ role: "all" });
+const showFilter = ref(false);
 const isDialogOpen = ref(false);
 const selectedUser = ref<any | null>(null);
 
-// 🎨 Íconos y colores por rol
+// Íconos y colores
 const rolIcons: Record<string, any> = {
   Administrador: LucideShield,
   Entrenador: LucideUserCog,
   Estudiante: LucideGraduationCap,
 };
 const rolColors: Record<string, string> = {
-  Administrador: "bg-rose-100 text-rose-700 border border-rose-200",
-  Entrenador: "bg-sky-100 text-sky-700 border border-sky-200",
-  Estudiante: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  Administrador: "bg-rose-50 text-rose-700 border-rose-300",
+  Entrenador: "bg-sky-50 text-sky-700 border-sky-300",
+  Estudiante: "bg-emerald-50 text-emerald-700 border-emerald-300",
 };
 const getRoleIcon = (roleDesc?: string) => rolIcons[roleDesc ?? ""] || LucideUser;
 const getRoleColor = (roleDesc?: string) => rolColors[roleDesc ?? ""] || "bg-gray-100 text-gray-600";
 
-// 🚀 Carga inicial segura
+const allUsers = computed(() => userStore.allUsers ?? []);
+const totalUsuarios = computed(() => allUsers.value.length ?? 0);
+const totalAdmins = computed(() => allUsers.value.filter(u => u.role?.description === "Administrador").length);
+const totalEntrenadores = computed(() => allUsers.value.filter(u => u.role?.description === "Entrenador").length);
+const totalEstudiantes = computed(() => allUsers.value.filter(u => u.role?.description === "Estudiante").length);
+
+const stats = computed(() => [
+  { label: "Total Usuarios", value: totalUsuarios.value, desc: "Registrados en el sistema", icon: LucideUsers, color: "text-red-500" },
+  { label: "Administradores", value: totalAdmins.value, desc: "Con permisos completos", icon: LucideShield, color: "text-rose-400" },
+  { label: "Entrenadores", value: totalEntrenadores.value, desc: "Activos en entrenamiento", icon: LucideDumbbell, color: "text-sky-400" },
+  { label: "Estudiantes", value: totalEstudiantes.value, desc: "Registrados en academias", icon: LucideGraduationCap, color: "text-emerald-500" },
+]);
+
 onMounted(async () => {
-  try {
-    const page = meta.value?.page ?? 1;
-    const limit = meta.value?.limit ?? 10;
-    await userStore.fetchUsers(page, limit, filters.value.role);
-    await userStore.fetchAllUsers();
-    await nextTick(); // ✅ asegura que las refs estén listas antes del render
-  } catch (err) {
-    console.error("Error al montar UsersView:", err);
-  }
+  const page = meta.value?.page ?? 1;
+  const limit = meta.value?.limit ?? 10;
+  await userStore.fetchUsers(page, limit, filters.value.role);
+  await userStore.fetchAllUsers();
+  await nextTick();
 });
 
-// 👁️ Reactividad al cambiar el filtro
-watch(
-  () => filters.value.role,
-  async (newRole) => {
-    const limit = meta.value?.limit ?? 10;
-    await userStore.fetchUsers(1, limit, newRole);
-  }
-);
+watch(() => filters.value.role, async (newRole) => {
+  const limit = meta.value?.limit ?? 10;
+  await userStore.fetchUsers(1, limit, newRole);
+});
 
-// ✅ Totales globales (basados en allUsers)
-const totalUsuarios = computed(() => allUsers.value?.length ?? 0);
-const totalAdmins = computed(
-  () => allUsers.value?.filter((u) => u.role?.description === "Administrador").length ?? 0
-);
-const totalEntrenadores = computed(
-  () => allUsers.value?.filter((u) => u.role?.description === "Entrenador").length ?? 0
-);
-const totalEstudiantes = computed(
-  () => allUsers.value?.filter((u) => u.role?.description === "Estudiante").length ?? 0
-);
-
-// 🔍 Filtro de búsqueda
 const filteredUsers = computed(() => {
-  const list = users.value ?? [];
   const term = searchTerm.value.toLowerCase().trim();
+  const list = users.value ?? [];
   if (!term) return list;
   return list.filter(
     (u) =>
@@ -263,7 +232,6 @@ const filteredUsers = computed(() => {
   );
 });
 
-// 📄 Paginación
 const goToPage = async (page: number) => {
   const limit = meta.value?.limit ?? 10;
   if (page < 1 || page > (meta.value?.totalPages ?? 1)) return;
@@ -271,19 +239,16 @@ const goToPage = async (page: number) => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-// 🆕 Crear usuario
 const openCreate = () => {
   selectedUser.value = null;
   isDialogOpen.value = true;
 };
 
-// ✏️ Editar usuario
 const openEdit = (user: any) => {
   selectedUser.value = user;
   isDialogOpen.value = true;
 };
 
-// 🗑️ Eliminar usuario
 const deleteUser = async (id: number) => {
   if (confirm("¿Seguro que deseas eliminar este usuario?")) {
     await userStore.deleteUser(id);
@@ -292,9 +257,24 @@ const deleteUser = async (id: number) => {
   }
 };
 
-// 🔄 Al crear/editar
 const handleUserCreated = async () => {
   await userStore.fetchUsers(meta.value?.page ?? 1, meta.value?.limit ?? 10, filters.value.role);
   await userStore.fetchAllUsers();
 };
 </script>
+
+<style scoped>
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+</style>

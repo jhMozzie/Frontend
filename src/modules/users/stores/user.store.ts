@@ -5,6 +5,7 @@ import type { User, CreateUserDto, UpdateUserDto } from "../types/user.types";
 export const useUserStore = defineStore("userStore", {
   state: () => ({
     users: [] as User[],
+    allUsers: [] as User[], // 👈 NUEVO ESTADO
     loading: false,
     error: null as string | null,
     meta: {
@@ -24,6 +25,16 @@ export const useUserStore = defineStore("userStore", {
         this.meta = res.meta;
       } finally {
         this.loading = false;
+      }
+    },
+
+    // 👇 NUEVO MÉTODO (para los totales globales)
+    async fetchAllUsers() {
+      try {
+        const data = await userService.getAll(1, 9999, "all"); // usa el mismo servicio
+        this.allUsers = data.data;
+      } catch (error) {
+        console.error("Error al cargar todos los usuarios:", error);
       }
     },
 

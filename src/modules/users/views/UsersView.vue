@@ -19,29 +19,15 @@
 
     <!-- ✅ Cards estadísticas -->
     <div class="grid gap-4 md:grid-cols-4">
-      <!-- Total -->
+      <!-- Total general -->
       <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
         <div class="flex items-center justify-between">
           <LucideUsers class="h-5 w-5 text-red-500" />
           <span class="text-sm font-medium text-gray-600">Total Usuarios</span>
         </div>
         <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ meta.total }}</p>
+          <p class="text-2xl font-bold text-gray-800">{{ totalUsuarios }}</p>
           <p class="text-xs text-gray-500">Registrados en el sistema</p>
-        </div>
-      </div>
-
-      <!-- Activos -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-        <div class="flex items-center justify-between">
-          <LucideUserCheck class="h-5 w-5 text-green-500" />
-          <span class="text-sm font-medium text-gray-600">Usuarios Activos</span>
-        </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">
-            {{ users.filter((u) => u.status === "Activo").length }}
-          </p>
-          <p class="text-xs text-gray-500">Con acceso al sistema</p>
         </div>
       </div>
 
@@ -52,9 +38,7 @@
           <span class="text-sm font-medium text-gray-600">Administradores</span>
         </div>
         <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">
-            {{ users.filter((u) => u.role?.description === "Administrador").length }}
-          </p>
+          <p class="text-2xl font-bold text-gray-800">{{ totalAdmins }}</p>
           <p class="text-xs text-gray-500">Con permisos completos</p>
         </div>
       </div>
@@ -66,10 +50,20 @@
           <span class="text-sm font-medium text-gray-600">Entrenadores</span>
         </div>
         <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">
-            {{ users.filter((u) => u.role?.description === "Entrenador").length }}
-          </p>
+          <p class="text-2xl font-bold text-gray-800">{{ totalEntrenadores }}</p>
           <p class="text-xs text-gray-500">Activos en entrenamiento</p>
+        </div>
+      </div>
+
+      <!-- Estudiantes -->
+      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+        <div class="flex items-center justify-between">
+          <LucideGraduationCap class="h-5 w-5 text-emerald-500" />
+          <span class="text-sm font-medium text-gray-600">Estudiantes</span>
+        </div>
+        <div class="mt-2">
+          <p class="text-2xl font-bold text-gray-800">{{ totalEstudiantes }}</p>
+          <p class="text-xs text-gray-500">Registrados en academias</p>
         </div>
       </div>
     </div>
@@ -79,9 +73,10 @@
       <div class="flex items-center justify-between p-4 border-b border-gray-200">
         <div>
           <h2 class="font-semibold text-gray-800 text-lg">Lista de Usuarios</h2>
+          <!-- ✅ Protegido contra undefined -->
           <p class="text-sm text-gray-500">
-            {{ meta.total }} usuario(s) en total • Mostrando página {{ meta.page }} de
-            {{ meta.totalPages }}
+            {{ meta?.total || 0 }} usuario(s) en total • Mostrando página
+            {{ meta?.page || 1 }} de {{ meta?.totalPages || 1 }}
           </p>
         </div>
 
@@ -109,94 +104,62 @@
         </div>
       </div>
 
-      <!-- Loading / Error / Table -->
-      <div v-if="loading" class="p-6 text-gray-500 text-center">
-        Cargando usuarios...
-      </div>
-      <div v-else-if="error" class="p-6 text-red-500 text-center">
-        {{ error }}
-      </div>
+      <!-- Tabla reutilizable -->
+      <DataTable
+        :data="filteredUsers"
+        :columns="[
+          { key: 'username', label: 'Usuario' },
+          { key: 'email', label: 'Email' },
+          { key: 'role.description', label: 'Rol' },
+          { key: 'phone', label: 'Teléfono' },
+          { key: 'status', label: 'Estado' }
+        ]"
+      >
+        <!-- 🎨 Rol -->
+        <template #role.description="{ item }">
+          <span
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-300 transform hover:scale-105"
+            :class="getRoleColor(item.role?.description)"
+          >
+            <component :is="getRoleIcon(item.role?.description)" class="h-3.5 w-3.5" />
+            {{ item.role?.description || 'Sin rol' }}
+          </span>
+        </template>
 
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 text-sm">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Usuario</th>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Email</th>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Rol</th>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Teléfono</th>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Estado</th>
-              <th class="px-4 py-3 text-right font-semibold text-gray-600">Acciones</th>
-            </tr>
-          </thead>
+        <!-- 🎨 Estado -->
+        <template #status="{ value }">
+          <span
+            class="px-2 py-1 rounded-md text-xs font-semibold"
+            :class="value === 'Activo'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-gray-200 text-gray-600'"
+          >
+            {{ value }}
+          </span>
+        </template>
 
-          <tbody class="divide-y divide-gray-100">
-            <tr
-              v-for="usuario in filteredUsers"
-              :key="usuario.id"
-              class="hover:bg-gray-50"
-            >
-              <td class="px-4 py-3 font-medium text-gray-800">
-                {{ usuario.username }}
-              </td>
-              <td class="px-4 py-3">{{ usuario.email }}</td>
-              <td class="px-4 py-3">
-                <span
-                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-300 transform hover:scale-105"
-                  :class="getRoleColor(usuario.role?.description)"
-                >
-                  <component
-                    :is="getRoleIcon(usuario.role?.description)"
-                    class="h-3.5 w-3.5"
-                  />
-                  {{ usuario.role?.description || "Sin rol" }}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-gray-600">{{ usuario.phone || "—" }}</td>
-              <td class="px-4 py-3">
-                <span
-                  class="px-2 py-1 rounded-md text-xs font-semibold"
-                  :class="
-                    usuario.status === 'Activo'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-200 text-gray-600'
-                  "
-                >
-                  {{ usuario.status }}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <div class="flex justify-end gap-2">
-                  <!-- 👁️ Ver (futuro uso) -->
-                  <button class="p-1 hover:text-blue-500">
-                    <LucideEye class="h-4 w-4" />
-                  </button>
-
-                  <!-- ✏️ Editar -->
-                  <button class="p-1 hover:text-yellow-500" @click="openEdit(usuario)">
-                    <LucideEdit class="h-4 w-4" />
-                  </button>
-
-                  <!-- 🗑️ Eliminar -->
-                  <button class="p-1 hover:text-rose-500" @click="deleteUser(usuario.id)">
-                    <LucideTrash2 class="h-4 w-4" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <!-- 🛠️ Acciones -->
+        <template #actions="{ item }">
+          <div class="flex justify-end gap-2">
+            <button class="p-1 hover:text-yellow-500" @click="openEdit(item)">
+              <LucideEdit class="h-4 w-4" />
+            </button>
+            <button class="p-1 hover:text-rose-500" @click="deleteUser(item.id)">
+              <LucideTrash2 class="h-4 w-4" />
+            </button>
+          </div>
+        </template>
+      </DataTable>
 
       <!-- Paginación -->
       <Pagination
-        :current-page="meta.page"
-        :total-pages="meta.totalPages"
+        :current-page="meta?.page || 1"
+        :total-pages="meta?.totalPages || 1"
         @page-change="goToPage"
       />
     </div>
 
-    <!-- 🧩 Modal para crear/editar -->
+    <!-- Modal -->
     <UserDialog
       v-model:open="isDialogOpen"
       :user="selectedUser"
@@ -206,36 +169,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import {
   LucidePlus,
   LucideSearch,
   LucideUser,
   LucideUserCog,
-  LucideEye,
   LucideEdit,
   LucideTrash2,
   LucideShield,
   LucideUsers,
-  LucideUserCheck,
   LucideGraduationCap,
   LucideDumbbell,
 } from "lucide-vue-next";
 import Pagination from "@/components/ui/Pagination.vue";
-import UserDialog from "../components/UserDialog.vue"; // ✅ nuevo modal
+import UserDialog from "../components/UserDialog.vue";
+import DataTable from "@/components/ui/DataTable.vue";
 import { useUserStore } from "../stores/user.store";
 import { storeToRefs } from "pinia";
 
+// ✅ Store
 const userStore = useUserStore();
 const { users, loading, error, meta } = storeToRefs(userStore);
 
-// Estado y filtros
+// ✅ fallback de seguridad
+const safeMeta = computed(() => meta.value ?? { total: 0, page: 1, limit: 10, totalPages: 1 });
+const allUsers = computed(() => userStore.allUsers ?? []);
+
+// Estado local
 const searchTerm = ref("");
 const filters = ref({ role: "all" });
 const isDialogOpen = ref(false);
-const selectedUser = ref<any | null>(null); // ✅ usuario seleccionado
+const selectedUser = ref<any | null>(null);
 
-// Íconos y colores de roles
+// 🎨 Íconos y colores por rol
 const rolIcons: Record<string, any> = {
   Administrador: LucideShield,
   Entrenador: LucideUserCog,
@@ -249,35 +216,58 @@ const rolColors: Record<string, string> = {
 const getRoleIcon = (roleDesc?: string) => rolIcons[roleDesc ?? ""] || LucideUser;
 const getRoleColor = (roleDesc?: string) => rolColors[roleDesc ?? ""] || "bg-gray-100 text-gray-600";
 
-// 🚀 Carga inicial
-onMounted(() => {
-  userStore.fetchUsers(meta.value.page, meta.value.limit, filters.value.role);
+// 🚀 Carga inicial segura
+onMounted(async () => {
+  try {
+    const page = meta.value?.page ?? 1;
+    const limit = meta.value?.limit ?? 10;
+    await userStore.fetchUsers(page, limit, filters.value.role);
+    await userStore.fetchAllUsers();
+    await nextTick(); // ✅ asegura que las refs estén listas antes del render
+  } catch (err) {
+    console.error("Error al montar UsersView:", err);
+  }
 });
 
-// 👁️ Watch para cambios de filtro
+// 👁️ Reactividad al cambiar el filtro
 watch(
   () => filters.value.role,
   async (newRole) => {
-    await userStore.fetchUsers(1, meta.value.limit, newRole);
+    const limit = meta.value?.limit ?? 10;
+    await userStore.fetchUsers(1, limit, newRole);
   }
 );
 
-// 🔍 Filtro de búsqueda (opcional)
+// ✅ Totales globales (basados en allUsers)
+const totalUsuarios = computed(() => allUsers.value?.length ?? 0);
+const totalAdmins = computed(
+  () => allUsers.value?.filter((u) => u.role?.description === "Administrador").length ?? 0
+);
+const totalEntrenadores = computed(
+  () => allUsers.value?.filter((u) => u.role?.description === "Entrenador").length ?? 0
+);
+const totalEstudiantes = computed(
+  () => allUsers.value?.filter((u) => u.role?.description === "Estudiante").length ?? 0
+);
+
+// 🔍 Filtro de búsqueda
 const filteredUsers = computed(() => {
+  const list = users.value ?? [];
   const term = searchTerm.value.toLowerCase().trim();
-  return users.value.filter((u) => {
-    return (
-      u.username.toLowerCase().includes(term) ||
-      u.email.toLowerCase().includes(term) ||
-      (u.role?.description || "").toLowerCase().includes(term)
-    );
-  });
+  if (!term) return list;
+  return list.filter(
+    (u) =>
+      u.username?.toLowerCase().includes(term) ||
+      u.email?.toLowerCase().includes(term) ||
+      (u.role?.description ?? "").toLowerCase().includes(term)
+  );
 });
 
 // 📄 Paginación
 const goToPage = async (page: number) => {
-  if (page < 1 || page > meta.value.totalPages) return;
-  await userStore.fetchUsers(page, meta.value.limit, filters.value.role);
+  const limit = meta.value?.limit ?? 10;
+  if (page < 1 || page > (meta.value?.totalPages ?? 1)) return;
+  await userStore.fetchUsers(page, limit, filters.value.role);
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
@@ -297,12 +287,14 @@ const openEdit = (user: any) => {
 const deleteUser = async (id: number) => {
   if (confirm("¿Seguro que deseas eliminar este usuario?")) {
     await userStore.deleteUser(id);
-    await userStore.fetchUsers(meta.value.page, meta.value.limit, filters.value.role);
+    await userStore.fetchUsers(meta.value?.page ?? 1, meta.value?.limit ?? 10, filters.value.role);
+    await userStore.fetchAllUsers();
   }
 };
 
-// 🔄 Recargar lista tras crear/editar
+// 🔄 Al crear/editar
 const handleUserCreated = async () => {
-  await userStore.fetchUsers(meta.value.page, meta.value.limit, filters.value.role);
+  await userStore.fetchUsers(meta.value?.page ?? 1, meta.value?.limit ?? 10, filters.value.role);
+  await userStore.fetchAllUsers();
 };
 </script>

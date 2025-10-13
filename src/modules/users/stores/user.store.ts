@@ -7,16 +7,21 @@ export const useUserStore = defineStore("userStore", {
     users: [] as User[],
     loading: false,
     error: null as string | null,
+    meta: {
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 1,
+    },
   }),
 
   actions: {
-    async fetchUsers() {
+    async fetchUsers(page = 1, limit = 10, role = "all") {
       this.loading = true;
-      this.error = null;
       try {
-        this.users = await userService.getAll();
-      } catch (err: any) {
-        this.error = err.message || "Error al obtener usuarios";
+        const res = await userService.getAll(page, limit, role);
+        this.users = res.data;
+        this.meta = res.meta;
       } finally {
         this.loading = false;
       }
@@ -25,7 +30,8 @@ export const useUserStore = defineStore("userStore", {
     async createUser(data: CreateUserDto) {
       try {
         const newUser = await userService.create(data);
-        this.users.push(newUser);
+        this.users.unshift(newUser); // lo agrega al inicio
+        this.meta.total += 1;
       } catch (err: any) {
         this.error = err.message;
       }
@@ -45,6 +51,7 @@ export const useUserStore = defineStore("userStore", {
       try {
         await userService.delete(id);
         this.users = this.users.filter((u) => u.id !== id);
+        this.meta.total -= 1;
       } catch (err: any) {
         this.error = err.message;
       }

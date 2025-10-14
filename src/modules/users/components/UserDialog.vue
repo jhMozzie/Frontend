@@ -79,23 +79,6 @@
               </select>
             </div>
 
-            <!-- Academia -->
-            <div class="space-y-2">
-              <label for="academia" class="text-sm font-medium">Academia Asignada *</label>
-              <select
-                v-model="formData.academia"
-                id="academia"
-                required
-                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400 outline-none"
-              >
-                <option disabled value="">Selecciona una academia</option>
-                <option value="Todas">Todas las academias</option>
-                <option value="Dojo Central">Dojo Central</option>
-                <option value="Karate Kids">Karate Kids</option>
-                <option value="Academia Bushido">Academia Bushido</option>
-              </select>
-            </div>
-
             <!-- Password (solo crear) -->
             <div class="space-y-2" v-if="!isEditMode">
               <label for="password" class="text-sm font-medium">Contraseña *</label>
@@ -104,8 +87,8 @@
                 id="password"
                 type="password"
                 required
-                minlength="8"
-                placeholder="Mínimo 8 caracteres"
+                minlength="5"
+                placeholder="Mínimo 5 caracteres"
                 class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400 outline-none"
               />
             </div>
@@ -118,7 +101,7 @@
                 id="confirmPassword"
                 type="password"
                 required
-                minlength="8"
+                minlength="5"
                 placeholder="Repite la contraseña"
                 class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-rose-400 outline-none"
               />
@@ -127,10 +110,17 @@
 
           <!-- Botones -->
           <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <button type="button" @click="closeDialog" class="px-4 py-2 text-sm border rounded-md hover:bg-gray-100">
+            <button
+              type="button"
+              @click="closeDialog"
+              class="px-4 py-2 text-sm border rounded-md hover:bg-gray-100"
+            >
               Cancelar
             </button>
-            <button type="submit" class="px-4 py-2 text-sm text-white bg-rose-600 rounded-md hover:bg-rose-700">
+            <button
+              type="submit"
+              class="px-4 py-2 text-sm text-white bg-rose-600 rounded-md hover:bg-rose-700"
+            >
               {{ isEditMode ? "Guardar Cambios" : "Crear Usuario" }}
             </button>
           </div>
@@ -141,16 +131,16 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch, computed } from "vue";
-import { useUserStore } from "../stores/user.store";
+import { reactive, watch, computed } from "vue"
+import { useUserStore } from "../stores/user.store"
 
 const props = defineProps<{
-  open: boolean;
-  user?: any;
-}>();
+  open: boolean
+  user?: any
+}>()
 
-const emit = defineEmits(["update:open", "submit"]);
-const userStore = useUserStore();
+const emit = defineEmits(["update:open", "submit"])
+const userStore = useUserStore()
 
 // Estado del formulario
 const formData = reactive({
@@ -158,27 +148,23 @@ const formData = reactive({
   email: "",
   telefono: "",
   rolId: "",
-  academia: "",
   password: "",
   confirmPassword: "",
-});
+})
 
-const isEditMode = computed(() => !!props.user);
+const isEditMode = computed(() => !!props.user)
 
-// ✅ Mover resetForm antes del watch
 const resetForm = () => {
   Object.assign(formData, {
     nombre: "",
     email: "",
     telefono: "",
     rolId: "",
-    academia: "",
     password: "",
     confirmPassword: "",
-  });
-};
+  })
+}
 
-// 👁️ Sincroniza el formulario cuando llega un usuario para editar
 watch(
   () => props.user,
   (user) => {
@@ -188,28 +174,27 @@ watch(
         email: user.email || "",
         telefono: user.phone || "",
         rolId: user.role?.id ? String(user.role.id) : "",
-        academia: user.academia || "",
         password: "",
         confirmPassword: "",
-      });
+      })
     } else {
-      resetForm();
+      resetForm()
     }
   },
   { immediate: true }
-);
+)
 
 const closeDialog = () => {
-  emit("update:open", false);
-};
+  emit("update:open", false)
+}
 
-// ✅ Crear o Editar usuario
 const handleSubmit = async () => {
   if (!isEditMode.value) {
     if (formData.password !== formData.confirmPassword) {
-      alert("Las contraseñas no coinciden.");
-      return;
+      alert("Las contraseñas no coinciden.")
+      return
     }
+
     await userStore.createUser({
       username: formData.nombre,
       email: formData.email,
@@ -217,7 +202,7 @@ const handleSubmit = async () => {
       phone: formData.telefono,
       roleId: Number(formData.rolId),
       status: "Activo",
-    });
+    })
   } else {
     await userStore.updateUser(props.user.id, {
       username: formData.nombre,
@@ -225,18 +210,18 @@ const handleSubmit = async () => {
       phone: formData.telefono,
       roleId: Number(formData.rolId),
       status: props.user.status || "Activo",
-    });
+    })
   }
 
-  emit("submit");
-  emit("update:open", false);
-};
+  emit("submit")
+  emit("update:open", false)
+}
 </script>
 
 <style scoped>
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.25s;
+  transition: opacity 0.25s ease;
 }
 .fade-enter-from,
 .fade-leave-to {

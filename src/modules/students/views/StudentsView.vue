@@ -1,264 +1,272 @@
 <template>
   <div class="flex-1 space-y-6 p-8">
-    <!-- Header -->
+    <!-- 🧭 Header -->
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Estudiantes</h1>
-        <p class="text-gray-500 mt-1">Gestiona los estudiantes registrados en las academias</p>
+        <p class="text-gray-500 mt-1">
+          Gestiona los estudiantes registrados en las academias
+        </p>
       </div>
       <button
-        @click="isDialogOpen = true"
-        class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
+        @click="openCreate"
+        class="inline-flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded-md hover:bg-rose-700 transition"
       >
         <LucidePlus class="h-4 w-4" />
         Nuevo Estudiante
       </button>
     </div>
 
-    <!-- ✅ Cards estadísticas -->
+    <!-- 📊 Cards resumen -->
     <div class="grid gap-4 md:grid-cols-4">
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col justify-between">
+      <div
+        v-for="(card, i) in cards"
+        :key="i"
+        class="bg-white border border-gray-200 rounded-lg shadow-sm p-4"
+      >
         <div class="flex items-center justify-between">
-          <LucideUsers class="h-5 w-5 text-red-600" />
-          <span class="text-sm font-medium text-gray-600">Total Estudiantes</span>
+          <component :is="card.icon" class="h-5 w-5" :class="card.color" />
+          <span class="text-sm font-medium text-gray-600">{{ card.label }}</span>
         </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ totalEstudiantes }}</p>
-          <p class="text-xs text-gray-500">Registrados en el sistema</p>
-        </div>
-      </div>
-
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <LucideUserCheck class="h-5 w-5 text-green-600" />
-          <span class="text-sm font-medium text-gray-600">Estudiantes Activos</span>
-        </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ totalActivos }}</p>
-          <p class="text-xs text-gray-500">Actualmente entrenando</p>
-        </div>
-      </div>
-
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <LucideAward class="h-5 w-5 text-indigo-600" />
-          <span class="text-sm font-medium text-gray-600">Cinturones Negros</span>
-        </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ totalNegros }}</p>
-          <p class="text-xs text-gray-500">Dan certificados</p>
-        </div>
-      </div>
-
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex flex-col justify-between">
-        <div class="flex items-center justify-between">
-          <LucideBarChart2 class="h-5 w-5 text-blue-600" />
-          <span class="text-sm font-medium text-gray-600">Edad Promedio</span>
-        </div>
-        <div class="mt-2">
-          <p class="text-2xl font-bold text-gray-800">{{ edadPromedio }}</p>
-          <p class="text-xs text-gray-500">Años</p>
-        </div>
+        <p class="text-2xl font-bold text-gray-800 mt-2">{{ card.value }}</p>
+        <p class="text-xs text-gray-400">{{ card.sub }}</p>
       </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <!-- 📋 Contenedor de tabla -->
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      <!-- 🧾 Header tabla -->
       <div class="flex items-center justify-between p-4 border-b border-gray-200">
         <div>
           <h2 class="font-semibold text-gray-800 text-lg">Lista de Estudiantes</h2>
-          <p class="text-sm text-gray-500">{{ filtered.length }} estudiante(s) encontrado(s)</p>
+          <p class="text-sm text-gray-500">
+            {{ meta.total }} estudiantes • Página {{ meta.page }} de {{ meta.totalPages }}
+          </p>
         </div>
-
         <div class="flex items-center gap-2">
           <div class="relative">
             <LucideSearch class="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
             <input
               v-model="q"
-              placeholder="Buscar estudiantes..."
-              class="pl-8 w-[300px] border border-gray-300 rounded-md h-10 text-sm px-3 focus:ring-2 focus:ring-red-500 outline-none"
+              placeholder="Buscar..."
+              class="pl-8 w-[300px] border border-gray-300 rounded-md h-10 text-sm px-3 focus:ring-2 focus:ring-rose-500 outline-none"
             />
           </div>
-
-          <button class="border border-gray-300 rounded-md h-10 px-3 hover:bg-gray-50">
-            <LucideFilter class="h-4 w-4 text-gray-600" />
-          </button>
         </div>
       </div>
 
+      <!-- ✅ Tabla -->
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 text-sm">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-4 py-3 text-left font-semibold text-gray-600">Nombre</th>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Edad</th>
               <th class="px-4 py-3 text-left font-semibold text-gray-600">Cinturón</th>
               <th class="px-4 py-3 text-left font-semibold text-gray-600">Academia</th>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Contacto</th>
-              <th class="px-4 py-3 text-left font-semibold text-gray-600">Estado</th>
+              <th class="px-4 py-3 text-left font-semibold text-gray-600">Correo</th>
               <th class="px-4 py-3 text-right font-semibold text-gray-600">Acciones</th>
             </tr>
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="s in filtered" :key="s.id" class="hover:bg-gray-50">
-              <td class="px-4 py-3 font-medium text-gray-800">{{ s.nombre }}</td>
-              <td class="px-4 py-3">{{ s.edad }} años</td>
+            <tr v-for="s in filtered" :key="s.id" class="hover:bg-gray-50 transition">
+              <td class="px-4 py-3 font-medium text-gray-800">
+                {{ s.firstname }} {{ s.lastname }}
+              </td>
+
               <td class="px-4 py-3">
                 <span
-                  :class="['px-2 py-1 rounded-full text-xs font-medium', beltClass(s.cinturon)]"
+                  :class="[
+                    'px-2 py-1 rounded-full text-xs font-medium',
+                    beltClass(s.belt?.kyuLevel),
+                  ]"
                 >
-                  {{ s.cinturon }}
+                  {{ formatKyu(s.belt?.kyuLevel) }}
                 </span>
               </td>
-              <td class="px-4 py-3">{{ s.academia }}</td>
-              <td class="px-4 py-3">
-                <p class="text-gray-900">{{ s.email }}</p>
-                <p class="text-gray-400 text-xs">{{ s.telefono }}</p>
-              </td>
-              <td class="px-4 py-3">
-                <span
-                  class="px-2 py-1 rounded-md text-xs font-semibold"
-                  :class="s.estado === 'Activo'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-200 text-gray-600'"
-                >
-                  {{ s.estado }}
-                </span>
-              </td>
+
+              <td class="px-4 py-3">{{ s.academy?.name || "Sin academia" }}</td>
+              <td class="px-4 py-3">{{ s.user?.email || "N/A" }}</td>
+
               <td class="px-4 py-3 text-right">
                 <div class="flex justify-end gap-2">
-                  <button class="p-1 hover:text-blue-600">
-                    <LucideEye class="h-4 w-4" />
-                  </button>
-                  <button class="p-1 hover:text-yellow-600">
+                  <button class="p-1 hover:text-yellow-600" @click="openEdit(s)">
                     <LucideEdit class="h-4 w-4" />
                   </button>
-                  <button class="p-1 hover:text-red-600">
+                  <button class="p-1 hover:text-rose-600" @click="deleteStudent(s.id)">
                     <LucideTrash2 class="h-4 w-4" />
                   </button>
                 </div>
               </td>
             </tr>
+
+            <tr v-if="filtered.length === 0">
+              <td colspan="5" class="text-center py-6 text-gray-400">
+                No se encontraron estudiantes.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
+
+      <!-- 📄 Paginación -->
+      <div class="p-4 flex justify-center">
+        <Pagination
+          :current-page="meta.page"
+          :total-pages="meta.totalPages"
+          @page-change="goToPage"
+        />
+      </div>
+
+      <!-- 🧱 Modal Crear/Editar -->
+      <StudentsDialog
+        :open="isDialogOpen"
+        :student="selectedStudent"
+        @update:open="isDialogOpen = $event"
+        @saved="handleSaved"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue"
+import { ref, computed, onMounted } from "vue"
+import { storeToRefs } from "pinia"
 import {
   LucidePlus,
   LucideSearch,
-  LucideFilter,
-  LucideEye,
   LucideEdit,
   LucideTrash2,
   LucideUsers,
   LucideUserCheck,
   LucideAward,
-  LucideBarChart2
+  LucideBarChart2,
 } from "lucide-vue-next"
+import Pagination from "@/components/ui/Pagination.vue"
+import { useStudentStore } from "../store/students.store"
+import StudentsDialog from "../components/StudentsDialog.vue"
+import type { Student } from "../types/students.types"
 
-type Estado = "Activo" | "Inactivo"
+// 🏪 Store
+const studentStore = useStudentStore()
+const { students, meta } = storeToRefs(studentStore)
+const { fetchStudents, deleteStudent } = studentStore
 
-interface StudentRow {
-  id: number
-  nombre: string
-  edad: number
-  cinturon: string
-  academia: string
-  email: string
-  telefono: string
-  estado: Estado
-}
+// 🔄 Cargar al montar
+onMounted(() => fetchStudents(1, 10))
 
-const rows = ref<StudentRow[]>([
-  {
-    id: 1,
-    nombre: "Carlos Rodríguez",
-    edad: 15,
-    cinturon: "Negro 1er Dan",
-    academia: "Dojo Central",
-    email: "carlos.rodriguez@email.com",
-    telefono: "+34 612 345 678",
-    estado: "Activo",
-  },
-  {
-    id: 2,
-    nombre: "María González",
-    edad: 12,
-    cinturon: "Marrón",
-    academia: "Karate Kids",
-    email: "maria.gonzalez@email.com",
-    telefono: "+34 623 456 789",
-    estado: "Activo",
-  },
-  {
-    id: 3,
-    nombre: "Juan Martínez",
-    edad: 18,
-    cinturon: "Negro 2do Dan",
-    academia: "Dojo Central",
-    email: "juan.martinez@email.com",
-    telefono: "+34 634 567 890",
-    estado: "Activo",
-  },
-  {
-    id: 4,
-    nombre: "Ana López",
-    edad: 14,
-    cinturon: "Azul",
-    academia: "Academia Bushido",
-    email: "ana.lopez@email.com",
-    telefono: "+34 645 678 901",
-    estado: "Inactivo",
-  },
-  {
-    id: 5,
-    nombre: "Pedro Sánchez",
-    edad: 16,
-    cinturon: "Negro 1er Dan",
-    academia: "Karate Kids",
-    email: "pedro.sanchez@email.com",
-    telefono: "+34 656 789 012",
-    estado: "Activo",
-  },
-])
-
+// 🔍 Búsqueda en tabla
 const q = ref("")
 const filtered = computed(() => {
   const term = q.value.trim().toLowerCase()
-  if (!term) return rows.value
-  return rows.value.filter((s) =>
-    [s.nombre, s.cinturon, s.academia, s.email, s.telefono, s.estado]
+  if (!term) return students.value
+  return students.value.filter((s) =>
+    [
+      s.firstname,
+      s.lastname,
+      s.belt?.name ?? "",
+      s.academy?.name ?? "",
+      s.user?.email ?? "",
+    ]
       .join(" ")
       .toLowerCase()
       .includes(term)
   )
 })
 
-// Métricas
-const totalEstudiantes = computed(() => rows.value.length)
-const totalActivos = computed(() => rows.value.filter((s) => s.estado === "Activo").length)
-const totalNegros = computed(() => rows.value.filter((s) => s.cinturon.toLowerCase().includes("negro")).length)
-const edadPromedio = computed(() =>
-  Math.round(rows.value.reduce((acc, s) => acc + s.edad, 0) / Math.max(rows.value.length, 1))
-)
+// 📄 Paginación
+const goToPage = (page: number) => fetchStudents(page, meta.value.limit)
 
-// Colores de cinturón
-const beltClass = (belt: string) => {
-  const b = belt.toLowerCase()
-  if (b.includes("negro")) return "bg-black text-white"
-  if (b.includes("marrón") || b.includes("marron")) return "bg-yellow-200 text-yellow-900"
-  if (b.includes("azul")) return "bg-blue-100 text-blue-700"
-  if (b.includes("verde")) return "bg-green-100 text-green-700"
-  if (b.includes("naranja")) return "bg-orange-100 text-orange-700"
-  if (b.includes("amarillo")) return "bg-yellow-100 text-yellow-700"
-  return "bg-gray-200 text-gray-700"
+// 🧱 Modal
+const isDialogOpen = ref(false)
+const selectedStudent = ref<Student | null>(null)
+
+const openCreate = () => {
+  selectedStudent.value = null
+  isDialogOpen.value = true
 }
 
-const isDialogOpen = ref(false)
+const openEdit = (student: Student) => {
+  selectedStudent.value = student
+  isDialogOpen.value = true
+}
+
+const handleSaved = async () => {
+  await fetchStudents(meta.value.page, meta.value.limit)
+  isDialogOpen.value = false
+}
+
+// 📊 Métricas
+const totalNegros = computed(() =>
+  students.value.filter((s) => s.belt?.kyuLevel === 0).length
+)
+
+const cards = computed(() => [
+  {
+    icon: LucideUsers,
+    color: "text-rose-600",
+    label: "Total Estudiantes",
+    value: meta.value.total,
+    sub: "Registrados",
+  },
+  {
+    icon: LucideUserCheck,
+    color: "text-green-600",
+    label: "Activos",
+    value: students.value.length,
+    sub: "Entrenando",
+  },
+  {
+    icon: LucideAward,
+    color: "text-indigo-600",
+    label: "Cinturones Negros",
+    value: totalNegros.value,
+    sub: "Dan certificados",
+  },
+  {
+    icon: LucideBarChart2,
+    color: "text-blue-600",
+    label: "Edad Promedio",
+    value: 15,
+    sub: "Años",
+  },
+])
+
+// 🥋 Funciones visuales
+const formatKyu = (kyuLevel?: number) => {
+  if (kyuLevel === undefined) return "Sin cinturón"
+  if (kyuLevel === 11) return "Blanco"
+  if (kyuLevel >= 1 && kyuLevel <= 10) return `${kyuLevel}º Kyu`
+  if (kyuLevel === 0) return "1º Dan"
+  if (kyuLevel < 0) return `${Math.abs(kyuLevel) + 1}º Dan`
+  return "Dan avanzado"
+}
+
+const beltClass = (kyuLevel?: number) => {
+  if (kyuLevel === undefined) return "bg-gray-200 text-gray-700"
+  switch (kyuLevel) {
+    case 11:
+      return "bg-white text-gray-700 border border-gray-300"
+    case 10:
+      return "bg-cyan-100 text-cyan-700"
+    case 9:
+      return "bg-yellow-100 text-yellow-700"
+    case 8:
+      return "bg-orange-100 text-orange-700"
+    case 7:
+      return "bg-orange-200 text-green-700"
+    case 6:
+      return "bg-green-100 text-green-700"
+    case 5:
+      return "bg-green-200 text-blue-700"
+    case 4:
+      return "bg-blue-100 text-blue-700"
+    case 3:
+    case 2:
+    case 1:
+      return "bg-amber-800 text-white"
+    default:
+      return "bg-black text-yellow-300 font-semibold"
+  }
+}
 </script>

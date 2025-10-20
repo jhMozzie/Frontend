@@ -9,12 +9,13 @@
             Gestiona todos los campeonatos y torneos
           </p>
         </div>
-        <button
+        <RouterLink
+          :to="{ name: 'championships-create' }"
           class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
         >
           <LucidePlus class="h-4 w-4" />
           Nuevo Campeonato
-        </button>
+        </RouterLink>
       </div>
     </div>
 
@@ -41,11 +42,7 @@
             class="appearance-none border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 pr-8 focus:outline-none focus:ring-0 focus:border-gray-300 cursor-pointer"
           >
             <option value="all">Todos los meses</option>
-            <option
-              v-for="m in months"
-              :key="m.value"
-              :value="m.value"
-            >
+            <option v-for="m in months" :key="m.value" :value="m.value">
               {{ m.label }}
             </option>
           </select>
@@ -61,13 +58,7 @@
             class="appearance-none border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 pr-8 focus:outline-none focus:ring-0 focus:border-gray-300 cursor-pointer"
           >
             <option value="all">Todos los años</option>
-            <option
-              v-for="y in years"
-              :key="y"
-              :value="y"
-            >
-              {{ y }}
-            </option>
+            <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
           </select>
           <LucideChevronDown
             class="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -140,13 +131,21 @@
 
     <!-- Contenido -->
     <div class="flex-1 p-6">
-      <div
-        v-if="filteredChampionships.length === 0"
-        class="text-center py-12"
-      >
-        <LucideCalendar
-          class="h-10 w-10 text-gray-400 mx-auto mb-3"
-        />
+      <!-- Loading -->
+      <div v-if="loading" class="text-center py-10 text-gray-500">
+        <LucideLoader2 class="h-6 w-6 animate-spin mx-auto mb-2" />
+        Cargando campeonatos...
+      </div>
+
+      <!-- Error -->
+      <div v-else-if="error" class="text-center py-10 text-red-500">
+        <LucideAlertTriangle class="h-6 w-6 mx-auto mb-2" />
+        {{ error }}
+      </div>
+
+      <!-- Sin resultados -->
+      <div v-else-if="filteredChampionships.length === 0" class="text-center py-12">
+        <LucideCalendar class="h-10 w-10 text-gray-400 mx-auto mb-3" />
         <h3 class="text-lg font-semibold text-gray-700 mb-1">
           No se encontraron campeonatos
         </h3>
@@ -162,11 +161,11 @@
         </button>
       </div>
 
+      <!-- 🧩 Grid -->
       <div v-else>
-        <!-- Grid -->
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <RouterLink
-            v-for="champ in currentChampionships"
+            v-for="champ in paginatedChampionships"
             :key="champ.id"
             :to="`/campeonatos/${champ.id}`"
             class="overflow-hidden border border-gray-200 bg-white rounded-lg shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all"
@@ -180,12 +179,8 @@
             </div>
 
             <div class="p-5">
-              <div
-                class="flex items-start justify-between gap-2 mb-3"
-              >
-                <h3
-                  class="text-lg font-bold text-gray-900 line-clamp-2"
-                >
+              <div class="flex items-start justify-between gap-2 mb-3">
+                <h3 class="text-lg font-bold text-gray-900 line-clamp-2">
                   {{ champ.name }}
                 </h3>
                 <span
@@ -195,85 +190,37 @@
                 </span>
               </div>
 
-              <div class="space-y-2">
-                <div
-                  class="flex items-center gap-2 text-sm text-gray-500"
-                >
+              <div class="space-y-2 text-sm text-gray-500">
+                <div class="flex items-center gap-2">
                   <LucideCalendar class="h-4 w-4" />
-                  {{ champ.date }}
+                  {{ formatDate(champ.startDate) }}
                 </div>
-                <div
-                  class="flex items-center gap-2 text-sm text-gray-500"
-                >
+                <div class="flex items-center gap-2">
                   <LucideMapPin class="h-4 w-4" />
                   {{ champ.location }}
                 </div>
-                <div
-                  class="flex items-center gap-2 text-sm text-gray-500"
-                >
+                <div class="flex items-center gap-2">
                   <LucideUsers class="h-4 w-4" />
-                  {{ champ.participants }} participantes
+                  {{ champ.academy }}
                 </div>
               </div>
             </div>
           </RouterLink>
         </div>
 
-        <!-- 📄 Paginación -->
-        <div class="mt-6 flex items-center justify-between">
-          <p class="text-sm text-gray-500">
-            Mostrando {{ indexOfFirstItem + 1 }} -
-            {{ Math.min(indexOfLastItem, filteredChampionships.length) }}
-            de {{ filteredChampionships.length }} campeonatos
-          </p>
+        <!-- 📄 Info y Paginación -->
+        <p class="text-sm text-gray-500 text-center mt-6">
+          Mostrando
+          {{ (currentPage - 1) * itemsPerPage + 1 }} –
+          {{ Math.min(currentPage * itemsPerPage, filteredChampionships.length) }}
+          de {{ filteredChampionships.length }} campeonatos
+        </p>
 
-          <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500">Mostrar:</span>
-              <select
-                v-model="itemsPerPage"
-                class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white focus:outline-none focus:ring-0 focus:border-gray-300"
-              >
-                <option value="6">6</option>
-                <option value="9">9</option>
-                <option value="12">12</option>
-                <option value="18">18</option>
-              </select>
-            </div>
-
-            <div class="flex items-center gap-1">
-              <button
-                @click="changePage(currentPage - 1)"
-                :disabled="currentPage === 1"
-                class="px-3 py-1 rounded-md text-sm border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Anterior
-              </button>
-
-              <button
-                v-for="page in pageNumbers"
-                :key="page"
-                @click="changePage(page)"
-                :class="[
-                  'px-3 py-1 rounded-md text-sm border border-gray-300 hover:bg-gray-100',
-                  currentPage === page
-                    ? 'bg-red-600 text-white border-red-600'
-                    : '',
-                ]"
-              >
-                {{ page }}
-              </button>
-
-              <button
-                @click="changePage(currentPage + 1)"
-                :disabled="currentPage === totalPages"
-                class="px-3 py-1 rounded-md text-sm border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        </div>
+        <Pagination
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          @page-change="handlePageChange"
+        />
       </div>
     </div>
   </div>
@@ -281,6 +228,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from "vue"
+import { RouterLink } from "vue-router"
+import { storeToRefs } from "pinia"
 import {
   LucidePlus,
   LucideCalendar,
@@ -290,16 +239,25 @@ import {
   LucideX,
   LucideFilter,
   LucideChevronDown,
+  LucideLoader2,
+  LucideAlertTriangle,
 } from "lucide-vue-next"
 
-// --- Datos
-const championships = [
-  { id: "1", name: "Campeonato Nacional 2025", date: "15 de Marzo, 2025", month: 3, year: 2025, location: "Madrid, España", participants: 156, status: "Activo", image: "/karate-tournament-arena.jpg" },
-  { id: "2", name: "Torneo Regional Centro", date: "22 de Febrero, 2025", month: 2, year: 2025, location: "Toledo, España", participants: 89, status: "Próximo", image: "/karate-dojo-competition.jpg" },
-  { id: "3", name: "Copa Juvenil de Primavera", date: "5 de Abril, 2025", month: 4, year: 2025, location: "Valencia, España", participants: 124, status: "Inscripción Abierta", image: "/young-karate-athletes.jpg" },
-  { id: "4", name: "Campeonato Internacional", date: "10 de Mayo, 2025", month: 5, year: 2025, location: "Barcelona, España", participants: 203, status: "Planificación", image: "/international-karate-championship.jpg" },
-]
+import Pagination from "@/components/ui/Pagination.vue"
+import { useChampionshipStore } from "@/modules/championships/store/championships.store"
 
+const championshipStore = useChampionshipStore()
+const { championships, loading, error } = storeToRefs(championshipStore)
+const { fetchChampionships } = championshipStore
+
+// --- Filtros
+const searchQuery = ref("")
+const selectedMonth = ref("all")
+const selectedYear = ref("all")
+const selectedStatuses = ref<string[]>([])
+const showStatusPopover = ref(false)
+
+// --- Listas estáticas
 const months = [
   { value: "1", label: "Enero" },
   { value: "2", label: "Febrero" },
@@ -317,20 +275,18 @@ const months = [
 const years = ["2024", "2025", "2026"]
 const statuses = ["Activo", "Próximo", "Inscripción Abierta", "Planificación"]
 
-// --- Filtros
-const searchQuery = ref("")
-const selectedMonth = ref("all")
-const selectedYear = ref("all")
-const selectedStatuses = ref<string[]>([])
-const showStatusPopover = ref(false)
+onMounted(() => {
+  fetchChampionships(1, 10)
+})
 
+// --- Filtros lógicos
 function toggleStatusPopover() {
   showStatusPopover.value = !showStatusPopover.value
 }
 function toggleStatus(status: string) {
-  if (selectedStatuses.value.includes(status)) {
+  if (selectedStatuses.value.includes(status))
     selectedStatuses.value = selectedStatuses.value.filter((s) => s !== status)
-  } else selectedStatuses.value.push(status)
+  else selectedStatuses.value.push(status)
 }
 function clearStatuses() {
   selectedStatuses.value = []
@@ -343,7 +299,7 @@ function handleClickOutside(e: MouseEvent) {
 onMounted(() => document.addEventListener("click", handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener("click", handleClickOutside))
 
-// --- Computed
+// --- Computed filters
 const hasActiveFilters = computed(
   () =>
     searchQuery.value !== "" ||
@@ -353,63 +309,48 @@ const hasActiveFilters = computed(
 )
 
 const filteredChampionships = computed(() =>
-  championships.filter((c) => {
+  championships.value.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       c.location.toLowerCase().includes(searchQuery.value.toLowerCase())
-    const matchesMonth =
-      selectedMonth.value === "all" || c.month === Number(selectedMonth.value)
-    const matchesYear =
-      selectedYear.value === "all" || c.year === Number(selectedYear.value)
     const matchesStatus =
       selectedStatuses.value.length === 0 ||
       selectedStatuses.value.includes(c.status)
-    return matchesSearch && matchesMonth && matchesYear && matchesStatus
+    return matchesSearch && matchesStatus
   }),
 )
 
 // --- Paginación
 const currentPage = ref(1)
 const itemsPerPage = ref(6)
-const indexOfLastItem = computed(() => currentPage.value * itemsPerPage.value)
-const indexOfFirstItem = computed(() => indexOfLastItem.value - itemsPerPage.value)
 const totalPages = computed(() =>
-  Math.ceil(filteredChampionships.value.length / itemsPerPage.value),
+  Math.ceil(filteredChampionships.value.length / itemsPerPage.value)
 )
-const currentChampionships = computed(() =>
-  filteredChampionships.value.slice(indexOfFirstItem.value, indexOfLastItem.value),
-)
-
-const pageNumbers = computed(() => {
-  const pages: number[] = []
-  const maxPagesToShow = 5
-  if (totalPages.value <= maxPagesToShow)
-    for (let i = 1; i <= totalPages.value; i++) pages.push(i)
-  else if (currentPage.value <= 3) {
-    for (let i = 1; i <= 4; i++) pages.push(i)
-    pages.push(totalPages.value)
-  } else if (currentPage.value >= totalPages.value - 2) {
-    pages.push(1)
-    for (let i = totalPages.value - 3; i <= totalPages.value; i++) pages.push(i)
-  } else {
-    pages.push(1)
-    for (let i = currentPage.value - 1; i <= currentPage.value + 1; i++) pages.push(i)
-    pages.push(totalPages.value)
-  }
-  return pages
+const paginatedChampionships = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredChampionships.value.slice(start, end)
 })
 
-function changePage(page: number) {
-  if (page < 1 || page > totalPages.value) return
+function handlePageChange(page: number) {
   currentPage.value = page
   window.scrollTo({ top: 0, behavior: "smooth" })
 }
 
+// --- Limpieza de filtros
 function clearFilters() {
   searchQuery.value = ""
   selectedMonth.value = "all"
   selectedYear.value = "all"
   selectedStatuses.value = []
-  currentPage.value = 1
+}
+
+// --- Formateo de fechas
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
 }
 </script>

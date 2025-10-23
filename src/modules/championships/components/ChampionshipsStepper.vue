@@ -102,18 +102,18 @@
 </template>
 
 <script setup lang="ts">
-import { Check, Info, Calendar, MapPin, Tag } from 'lucide-vue-next'
+// 👇 Importamos solo los iconos necesarios para 3 pasos
+import { Check, Info, MapPin, Tag } from 'lucide-vue-next'
 import { shallowRef } from 'vue'
-// Importamos el tipo 'Component' de Vue para tipar correctamente los iconos
 import type { Component } from 'vue'
 
 defineProps<{
-  steps: string[]
-  currentStep: number
+  steps: string[] // Espera un array de 3 strings
+  currentStep: number // Espera 1, 2 o 3
 }>()
 
-// Usamos 'Component[]' como el tipo para el array de iconos
-const stepIcons = shallowRef<Component[]>([Info, Calendar, MapPin, Tag])
+// 👇 Actualizamos el array de iconos a 3
+const stepIcons = shallowRef<Component[]>([Info, MapPin, Tag])
 
 const stepNumber = (index: number) => index + 1
 </script>

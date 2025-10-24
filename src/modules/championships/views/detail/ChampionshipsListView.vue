@@ -126,12 +126,10 @@
         <LucideLoader2 class="h-6 w-6 animate-spin mx-auto mb-2" />
         Cargando campeonatos...
       </div>
-
       <div v-else-if="error" class="text-center py-10 text-red-500">
         <LucideAlertTriangle class="h-6 w-6 mx-auto mb-2" />
         {{ error }}
       </div>
-
       <div v-else-if="filteredChampionships.length === 0" class="text-center py-12">
         <LucideCalendar class="h-10 w-10 text-gray-400 mx-auto mb-3" />
         <h3 class="text-lg font-semibold text-gray-700 mb-1">
@@ -151,15 +149,63 @@
 
       <div v-else>
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <ChampionshipCard
+          <RouterLink
             v-for="champ in paginatedChampionships"
             :key="champ.id"
-            v-bind="champ"
-            :image="champ.image || '/placeholder.svg'"
-            :date="formatDate(champ.startDate)"
-            @edit="handleEdit"
-            @delete="handleDelete"
-          />
+            :to="`/championships/${champ.id}`"
+            class="overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
+          >
+            <div class="aspect-video w-full overflow-hidden">
+              <img 
+                :src="champ.image?.trim() ? champ.image : '/international-karate-championship.jpg'" 
+                :alt="champ.name" 
+                class="w-full h-full object-cover" 
+              />
+            </div>
+            
+            <div class="p-5">
+              <div class="flex items-start justify-between mb-3">
+                <h3 class="font-semibold text-lg text-foreground line-clamp-1">{{ champ.name }}</h3>
+                <span class="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold bg-red-600 text-white">
+                  {{ champ.status }}
+                </span>
+              </div>
+
+              <div class="space-y-2">
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                  <LucideCalendar class="w-4 h-4" />
+                  <span>{{ formatDate(champ.startDate) }}</span>
+                </div>
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                  <LucideMapPin class="w-4 h-4" />
+                  <span class="line-clamp-1">{{ champ.location }}</span>
+                </div>
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                  <LucideUsers class="w-4 h-4" />
+                  <span>{{ champ.academy }}</span>
+                </div>
+              </div>
+
+              <div class="flex gap-2 mt-4 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  @click.prevent.stop="handleEdit(champ.id)"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3 flex-1 gap-2 border border-gray-300 bg-white hover:bg-gray-50"
+                >
+                  <LucidePencil class="w-4 h-4" />
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  @click.prevent.stop="handleDelete(champ.id)"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3 flex-1 gap-2 border border-gray-300 bg-white hover:bg-gray-50 text-red-600 hover:text-red-700"
+                >
+                  <LucideTrash2 class="w-4 h-4" />
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </RouterLink>
         </div>
 
         <p class="text-sm text-gray-500 text-center mt-6">
@@ -168,7 +214,6 @@
           {{ Math.min(currentPage * itemsPerPage, filteredChampionships.length) }}
           de {{ filteredChampionships.length }} campeonatos
         </p>
-
         <Pagination
           :current-page="currentPage"
           :total-pages="totalPages"
@@ -181,7 +226,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from "vue"
-// 👇 Importamos RouterLink y useRouter
 import { RouterLink, useRouter } from "vue-router"
 import { storeToRefs } from "pinia"
 import {
@@ -193,29 +237,30 @@ import {
   LucideChevronDown,
   LucideLoader2,
   LucideAlertTriangle,
+  // 👇 AÑADIMOS LOS ICONOS QUE AHORA ESTÁN EN ESTE TEMPLATE
+  LucideMapPin,
+  LucideUsers,
+  LucidePencil,
+  LucideTrash2,
 } from "lucide-vue-next"
 
 import Pagination from "@/components/ui/Pagination.vue"
 import { useChampionshipStore } from "@/modules/championships/store/championships.store"
-// 👇 Importamos tu nuevo Card
-import ChampionshipCard from "@/modules/championships/components/ChampionshipsCard.vue"
 
 const championshipStore = useChampionshipStore()
 const { championships, loading, error } = storeToRefs(championshipStore)
-// 👇 Añadimos deleteChampionship
 const { fetchChampionships, deleteChampionship } = championshipStore
 
-// 👇 Inicializamos el router
 const router = useRouter()
 
-// --- Filtros
+// --- Filtros ---
 const searchQuery = ref("")
 const selectedMonth = ref("all")
 const selectedYear = ref("all")
 const selectedStatuses = ref<string[]>([])
 const showStatusPopover = ref(false)
 
-// --- Listas estáticas
+// --- Listas estáticas ---
 const months = [
   { value: "1", label: "Enero" }, { value: "2", label: "Febrero" }, { value: "3", label: "Marzo" },
   { value: "4", label: "Abril" }, { value: "5", label: "Mayo" }, { value: "6", label: "Junio" },
@@ -226,11 +271,10 @@ const years = ["2024", "2025", "2026"]
 const statuses = ["Activo", "Próximo", "Inscripción Abierta", "Planificación"]
 
 onMounted(() => {
-  // 👇 Pedimos 999 para que los filtros de front-end funcionen con todos los datos
   fetchChampionships(1, 999) 
 })
 
-// --- Filtros lógicos
+// --- Filtros lógicos ---
 function toggleStatusPopover() {
   showStatusPopover.value = !showStatusPopover.value
 }
@@ -250,7 +294,7 @@ function handleClickOutside(e: MouseEvent) {
 onMounted(() => document.addEventListener("click", handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener("click", handleClickOutside))
 
-// --- Computed filters
+// --- Computed filters ---
 const hasActiveFilters = computed(
   () =>
     searchQuery.value !== "" ||
@@ -261,7 +305,6 @@ const hasActiveFilters = computed(
 
 const filteredChampionships = computed(() =>
   championships.value.filter((c) => {
-    // 👇 Lógica de filtros mejorada para incluir mes y año
     const date = new Date(c.startDate)
     
     const matchesSearch =
@@ -284,9 +327,9 @@ const filteredChampionships = computed(() =>
   }),
 )
 
-// --- Paginación
+// --- Paginación ---
 const currentPage = ref(1)
-const itemsPerPage = ref(6) // Mostramos 6 por página
+const itemsPerPage = ref(6)
 const totalPages = computed(() =>
   Math.ceil(filteredChampionships.value.length / itemsPerPage.value)
 )
@@ -301,16 +344,16 @@ function handlePageChange(page: number) {
   window.scrollTo({ top: 0, behavior: "smooth" })
 }
 
-// --- Limpieza de filtros
+// --- Limpieza de filtros ---
 function clearFilters() {
   searchQuery.value = ""
   selectedMonth.value = "all"
   selectedYear.value = "all"
   selectedStatuses.value = []
-  currentPage.value = 1 // 👇 Reseteamos a la página 1
+  currentPage.value = 1
 }
 
-// --- Formateo de fechas
+// --- Formateo de fechas ---
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString("es-PE", {
     day: "2-digit",
@@ -319,28 +362,17 @@ function formatDate(dateString: string) {
   })
 }
 
-// --- 👇 NUEVAS FUNCIONES PARA MANEJAR EVENTOS ---
-
-/**
- * Navega a la página de edición del campeonato
- */
+// --- Manejadores de eventos (Sin cambios) ---
 function handleEdit(id: number) {
-  // Asumiendo que tu ruta de edición se llama 'championships-edit'
   router.push({ name: 'championships-edit', params: { id } })
 }
 
-/**
- * Pide confirmación y elimina un campeonato
- */
 async function handleDelete(id: number) {
   if (window.confirm("¿Estás seguro de que quieres eliminar este campeonato?")) {
     try {
       await deleteChampionship(id);
-      // Aquí podrías mostrar un toast de éxito
-      // (Tu store ya vuelve a cargar la lista)
     } catch (err) {
       console.error("Error al eliminar el campeonato:", err);
-      // Aquí podrías mostrar un toast de error
     }
   }
 }

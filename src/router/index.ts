@@ -6,6 +6,7 @@ import MainLayout from "@/components/layouts/MainLayout.vue"
 import DashboardView from "@/modules/dashboards/views/DashboardView.vue"
 // 👇 Corregí la ruta, tu ListView está en 'views', no 'views/detail'
 import ChampionshipsListView from "@/modules/championships/views/detail/ChampionshipsListView.vue"
+import ChampionshipsDetailView from "@/modules/championships/views/detail/ChampionshipsDetailView.vue"
 import ChampionshipsFormView from "@/modules/championships/views/ChampionshipsFormView.vue"
 import UsersView from "@/modules/users/views/UsersView.vue"
 import StudentsView from "@/modules/students/views/StudentsView.vue"
@@ -42,6 +43,11 @@ const routes = [
         path: "championships/:id/editar", // El 'id' debe coincidir con el param
         name: "championships-edit",       // El nombre debe coincidir con el router.push
         component: ChampionshipsFormView,
+      },
+      {
+        path: "championships/:id", // <-- Esta ruta SÍ coincide con /campeonatos/5
+        name: "championships-detail",
+        component: ChampionshipsDetailView, // <-- El nuevo componente
       },
       // ------------------------------
 

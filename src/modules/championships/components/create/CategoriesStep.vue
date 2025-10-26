@@ -1,63 +1,79 @@
 <template>
   <div class="space-y-6">
-    <div
-      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-gray-200"
-    >
-      <div class="flex items-center gap-2 flex-wrap">
-        <label class="text-sm font-medium text-gray-700 shrink-0"
-          >Filtrar por:</label
-        >
+    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pb-4">
+      
+      <div class="flex items-center gap-4 flex-wrap">
         <div class="flex gap-1 rounded-md border border-gray-300 p-0.5">
-          <button
-            @click="filterDivision = 'all'"
-            :class="[
-              'px-3 py-1 text-sm rounded-md transition-colors',
-              filterDivision === 'all'
-                ? 'bg-gray-100 text-gray-900 font-semibold'
-                : 'text-gray-600 hover:bg-gray-50',
-            ]"
-          >
+          <button 
+            @click="quickFilter = 'all'" 
+            :class="['px-3 py-1 text-sm rounded-md transition-colors', quickFilter === 'all' ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-50']">
             Todas
           </button>
-          <button
-            @click="filterDivision = 'Infantil'"
-            :class="[
-              'px-3 py-1 text-sm rounded-md transition-colors',
-              filterDivision === 'Infantil'
-                ? 'bg-gray-100 text-gray-900 font-semibold'
-                : 'text-gray-600 hover:bg-gray-50',
-            ]"
-          >
-            Infantil
+          <button 
+            @click="quickFilter = 'Kata'" 
+            :class="['px-3 py-1 text-sm rounded-md transition-colors', quickFilter === 'Kata' ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-50']">
+            Kata
           </button>
-          <button
-            @click="filterDivision = 'Juvenil'"
-            :class="[
-              'px-3 py-1 text-sm rounded-md transition-colors',
-              filterDivision === 'Juvenil'
-                ? 'bg-gray-100 text-gray-900 font-semibold'
-                : 'text-gray-600 hover:bg-gray-50',
-            ]"
-          >
-            Juvenil
-          </button>
-          <button
-            @click="filterDivision = 'Senior'"
-            :class="[
-              'px-3 py-1 text-sm rounded-md transition-colors',
-              filterDivision === 'Senior'
-                ? 'bg-gray-100 text-gray-900 font-semibold'
-                : 'text-gray-600 hover:bg-gray-50',
-            ]"
-          >
-            Senior
+          <button 
+            @click="quickFilter = 'Kumite'" 
+            :class="['px-3 py-1 text-sm rounded-md transition-colors', quickFilter === 'Kumite' ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-50']">
+            Kumite
           </button>
         </div>
+
+        <FilterPopover align="left" width="w-72">
+          <template #trigger="{ isOpen }">
+            <button
+              :class="[
+                'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none',
+                'h-9', // Altura consistente
+                (hasActiveFilters || isOpen) ? 'border-red-600 text-red-700 bg-red-50 hover:bg-red-100' : 'border-gray-300 bg-transparent text-gray-700 hover:bg-gray-50'
+              ]"
+            >
+              <LucideFilter class="h-4 w-4" />
+              <span>Filtros</span>
+              <span v-if="hasActiveFilters" class="ml-1 bg-red-200 text-red-800 text-xs font-medium rounded-full px-2 py-0.5">
+                {{ activeFilterCount }}
+              </span>
+            </button>
+          </template>
+          
+          <template #content="{ close }">
+             <div class="flex items-center justify-between mb-3">
+               <h4 class="font-semibold text-sm">Filtros Avanzados</h4>
+               <button v-if="hasActiveFilters" @click="clearFilters" class="inline-flex items-center gap-1 text-xs text-red-600 hover:underline">
+                 <LucideX class="h-3 w-3" /> Limpiar
+               </button>
+             </div>
+             <div class="space-y-4">
+                <div>
+                  <label for="filter-edad" class="block text-sm font-medium text-gray-700 mb-1">Grupo de Edad</label>
+                  <select v-model="ageFilter" id="filter-edad" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0">
+                    <option value="all">Todas Edades</option>
+                    <option value="Infantil">Infantil (U14)</option>
+                    <option value="Juvenil">Juvenil (Cadete/Junior)</option>
+                    <option value="Senior">Senior (Sub-21/Senior)</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="filter-cinturon" class="block text-sm font-medium text-gray-700 mb-1">Cinturón (Min)</label>
+                  <select v-model="filters.beltMinName" id="filter-cinturon" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0">
+                    <option value="all">Todos</option>
+                    <option v-for="belt in uniqueBeltNames" :key="belt" :value="belt">{{ belt }}</option>
+                  </select>
+                </div>
+             </div>
+             <button @click="close" class="mt-4 w-full inline-flex items-center justify-center bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm">
+               Aplicar
+             </button>
+          </template>
+        </FilterPopover>
+
       </div>
 
       <div class="flex gap-2 w-full sm:w-auto">
         <button
-          @click="handleAddCategory"
+          @click="openCreateModal"
           class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
         >
           <LucidePlus class="w-4 h-4" />
@@ -73,84 +89,48 @@
       </div>
     </div>
 
-    <div class="border rounded-lg overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th
-              scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Nombre de Categoría
-            </th>
-            <th
-              scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Tipo
-            </th>
-            <th
-              scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              División
-            </th>
-            <th scope="col" class="relative px-6 py-3">
-              <span class="sr-only">Acciones</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-if="paginatedCategories.length === 0">
-            <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500">
-              No hay categorías para mostrar
-            </td>
-          </tr>
-          <tr v-for="category in paginatedCategories" :key="category.id">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              {{ category.name }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ category.type }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ category.division }}
-            </td>
-            <td
-              class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
-            >
-              <div class="flex justify-end gap-2">
-                <button
-                  @click="handleEditCategory(category.id)"
-                  class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900"
-                >
-                  <LucidePencil class="w-4 h-4" />
-                  Editar
-                </button>
-                <button
-                  @click="handleDeleteCategory(category.id)"
-                  class="inline-flex items-center gap-1 text-red-600 hover:text-red-800"
-                >
-                  <LucideTrash2 class="w-4 h-4" />
-                  Eliminar
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-if="categoriesLoading" class="text-center py-10 text-gray-500">
+      <LucideLoader2 class="h-6 w-6 animate-spin mx-auto mb-2" />
+      Cargando categorías...
+    </div>
+    <div v-else-if="categoriesError" class="text-center py-10 text-red-500">
+      <LucideAlertTriangle class="h-6 w-6 mx-auto mb-2" />
+      {{ categoriesError }}
     </div>
 
-    <div
-      v-if="filteredCategories.length > 0"
-      class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-200"
-    >
+    <div v-else class="rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <DataTable :data="filteredPaginatedCategories" :columns="tableColumns">
+        <template #name="{ item }">
+          <span class="font-medium text-gray-900">{{ generateCategoryName(item) }}</span>
+        </template>
+        
+        <template #belt="{ item }">
+          <span>{{ item.beltMinName === item.beltMaxName ? item.beltMinName : `${item.beltMinName} a ${item.beltMaxName}` }}</span>
+        </template>
+        
+        <template #participantCount="{ item }">
+           <span class="flex justify-center">{{ item.participantCount }}</span>
+        </template>
+
+        <template #actions="{ item }">
+          <div class="flex justify-end gap-2">
+            <button @click="handleEditCategory(item)" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900">
+              <LucidePencil class="w-4 h-4" /> Editar
+            </button>
+            <button @click="handleDeleteCategory(item.id)" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800">
+              <LucideTrash2 class="w-4 h-4" /> Eliminar
+            </button>
+          </div>
+        </template>
+      </DataTable>
+    </div>
+
+    <div v-if="!categoriesLoading && totalPages > 1" class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
       <div class="flex items-center gap-2">
         <span class="text-sm text-gray-500">Mostrar:</span>
         <select
           v-model="itemsPerPage"
-          @change="currentPage = 1"
-          class="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400 appearance-none cursor-pointer"
+          class="h-9 rounded-md border border-gray-300 bg-white py-1 px-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"
         >
           <option :value="5">5</option>
           <option :value="10">10</option>
@@ -158,7 +138,7 @@
         </select>
         <span class="text-sm text-gray-500">
           resultados ({{ startIndex + 1 }} -
-          {{ Math.min(startIndex + itemsPerPage, filteredCategories.length) }}
+          {{ Math.min(endIndex, filteredCategories.length) }}
           de {{ filteredCategories.length }})
         </span>
       </div>
@@ -169,100 +149,258 @@
           :disabled="currentPage === 1"
           class="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <LucideChevronLeft class="w-4 h-4 mr-1" />
-          Anterior
+          <LucideChevronLeft class="w-4 h-4 mr-1" /> Anterior
         </button>
         <button
           @click="currentPage++"
           :disabled="currentPage === totalPages"
           class="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Siguiente
-          <LucideChevronRight class="w-4 h-4 ml-1" />
+          Siguiente <LucideChevronRight class="w-4 h-4 ml-1" />
         </button>
       </div>
     </div>
+
+    <transition
+      enter-active-class="ease-out duration-300"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="ease-in duration-200"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <CategoryFormModal
+        v-if="showCategoryModal"
+        :initial-data="editingCategoryData"
+        :is-saving="isSaving"
+        :error="modalError"
+        @close="closeModal"
+        @save="handleSaveCategory"
+      />
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useChampionshipStore } from '@/modules/championships/store/championships.store'
+import type { ChampionshipCategoryListItem, CreateChampionshipCategoryPayload, UpdateChampionshipCategoryPayload } from '@/modules/championships/types/championships-categories.types'
 import {
-  LucidePlus,
-  LucideUpload,
-  LucidePencil,
-  LucideTrash2,
-  LucideChevronLeft,
-  LucideChevronRight,
+  LucidePlus, LucideUpload, LucidePencil, LucideTrash2, LucideChevronLeft,
+  LucideChevronRight, LucideLoader2, LucideAlertTriangle, LucideX,
+  LucideFilter
 } from 'lucide-vue-next'
+import DataTable from '@/components/ui/DataTable.vue'
+import FilterPopover from '@/components/ui/FilterPopover.vue'
+import CategoryFormModal from '@/modules/championships/components/create/CategoryFormModal.vue'
 
-// Definimos la interfaz directamente aquí
-interface Category {
-  id: string
-  name: string
-  type: 'Kata' | 'Kumite'
-  division: string
-}
+// --- CONEXIÓN AL STORE ---
+const route = useRoute()
+const championshipStore = useChampionshipStore()
+const championshipId = computed(() => Number(route.params.id))
 
-// --- Estado Local (Hardcodeado) ---
+const { 
+  championshipCategories, 
+  // categoriesMeta, // No lo usamos para paginación frontend
+  categoriesLoading, 
+  categoriesError 
+} = storeToRefs(championshipStore)
 
-// Filtro
-const filterDivision = ref<string>('all')
+const { 
+  fetchChampionshipCategories, 
+  createCategory, 
+  updateCategory,
+  deleteCategory 
+} = championshipStore
 
-// Datos de ejemplo (como en React)
-const categories = ref<Category[]>([
-  { id: '1', name: 'Infantil Masculino -45kg', type: 'Kumite', division: 'Infantil' },
-  { id: '2', name: 'Juvenil Femenino Kata', type: 'Kata', division: 'Juvenil' },
-  { id: '3', name: 'Senior Masculino -75kg', type: 'Kumite', division: 'Senior' },
-  { id: '4', name: 'Infantil Femenino -40kg', type: 'Kumite', division: 'Infantil' },
-  { id: '5', name: 'Senior Femenino Kata', type: 'Kata', division: 'Senior' },
-])
-
-// Paginación
+// --- ESTADO LOCAL ---
+const quickFilter = ref<string>('all') // Filtro modalidad
+const ageFilter = ref<string>('all')  // Filtro edad (Infantil, Juvenil, Senior)
+const filters = ref({ // Filtros avanzados (popover)
+  beltMinName: "all",
+});
 const currentPage = ref(1)
-const itemsPerPage = ref(5) // Cambiado a 5 para el ejemplo visual
+const itemsPerPage = ref(5)
 
-// --- Lógica (Hardcodeada) ---
-
-// Filtrado (Computed Property)
-const filteredCategories = computed(() => {
-  if (filterDivision.value === 'all') {
-    return categories.value
+// --- DATOS Y PAGINACIÓN ---
+onMounted(() => {
+  if (championshipId.value) {
+    fetchChampionshipCategories(championshipId.value, 1, 999)
   }
-  return categories.value.filter((cat) => cat.division === filterDivision.value)
 })
 
-// Paginación (Computed Properties)
-const totalPages = computed(() =>
-  Math.ceil(filteredCategories.value.length / itemsPerPage.value)
-)
-const startIndex = computed(() => (currentPage.value - 1) * itemsPerPage.value)
-const paginatedCategories = computed(() =>
-  filteredCategories.value.slice(
-    startIndex.value,
-    startIndex.value + itemsPerPage.value
-  )
-)
+// --- Lógica de Filtros ---
+// 👇 'hasActiveFilters' ahora incluye 'ageFilter'
+const hasActiveFilters = computed<boolean>(() => 
+  filters.value.beltMinName !== 'all' || 
+  ageFilter.value !== 'all'
+);
+const activeFilterCount = computed<number>(() => 
+  (filters.value.beltMinName !== 'all' ? 1 : 0) +
+  (ageFilter.value !== 'all' ? 1 : 0)
+);
 
-// Handlers (Simulados)
-const handleDeleteCategory = (id: string) => {
-  categories.value = categories.value.filter((cat) => cat.id !== id)
-  // toast.success("Categoría eliminada"); // Necesitarás un sistema de toast
-  console.log('Categoría eliminada:', id)
+const clearFilters = () => {
+  filters.value = { beltMinName: "all" };
+  ageFilter.value = 'all'; // 👈 Limpiamos el filtro de edad también
+  currentPage.value = 1;
+};
+
+// Función para mapear ageRangeLabel a grupo
+function getAgeGroup(ageRangeLabel: string): string {
+  if (ageRangeLabel.includes('U14')) return 'Infantil';
+  if (ageRangeLabel.includes('Cadete') || ageRangeLabel.includes('Junior')) return 'Juvenil';
+  if (ageRangeLabel.includes('Sub-21') || ageRangeLabel.includes('Senior')) return 'Senior';
+  return 'Otro';
 }
 
-const handleEditCategory = (id: string) => {
-  // toast.info("Función de edición próximamente");
-  console.log('Editar categoría:', id)
+// ===================================================================
+// === 👇 AQUÍ VA LA CORRECCIÓN 👇 ===
+// ===================================================================
+const filteredCategories = computed(() => {
+  if (!Array.isArray(championshipCategories.value)) return [];
+  
+  // 1. Filtramos los datos
+  const filtered = championshipCategories.value.filter(cat => {
+    const matchesQuickFilter = quickFilter.value === 'all' || cat.modality === quickFilter.value;
+    const matchesAgeFilter = ageFilter.value === 'all' || getAgeGroup(cat.ageRangeLabel) === ageFilter.value;
+    const matchesBelt = filters.value.beltMinName === 'all' || cat.beltMinName === filters.value.beltMinName;
+    return matchesQuickFilter && matchesAgeFilter && matchesBelt;
+  });
+
+  // 2. Ordenamos los datos filtrados por 'code'
+  return filtered.sort((a, b) => {
+    const codeA = a.code || ''; // Maneja null/undefined
+    const codeB = b.code || ''; // Maneja null/undefined
+    
+    // localeCompare con 'numeric: true' ordena "A1", "A2", "A10", "B1" correctamente
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+});
+// ===================================================================
+// === 👆 FIN DE LA CORRECCIÓN 👆 ===
+// ===================================================================
+
+// --- Paginación ---
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredCategories.value.length / itemsPerPage.value)));
+const startIndex = computed(() => (currentPage.value - 1) * itemsPerPage.value);
+const endIndex = computed(() => startIndex.value + itemsPerPage.value);
+const filteredPaginatedCategories = computed(() => filteredCategories.value.slice(startIndex.value, endIndex.value));
+
+// Opciones para los <select> del popover
+// (uniqueAgeRanges ya no es necesario para el popover, pero lo dejamos para el modal si lo necesitas)
+const uniqueAgeRanges = computed(() => [...new Set(championshipCategories.value.map(c => c.ageRangeLabel).filter(Boolean))].sort());
+const uniqueBeltNames = computed(() => [...new Set(championshipCategories.value.map(c => c.beltMinName).filter(Boolean))].sort());
+
+
+// Watcher para resetear la página (ya incluye 'ageFilter')
+watch([quickFilter, ageFilter, filters, itemsPerPage], () => {
+    currentPage.value = 1;
+}, { deep: true });
+
+// --- LÓGICA DEL MODAL ---
+const showCategoryModal = ref(false)
+const isEditing = ref(false)
+const editingCategoryData = ref<Partial<CreateChampionshipCategoryPayload> & { id?: number } | undefined>(undefined)
+const modalError = ref<string | null>(null)
+const isSaving = ref(false)
+
+const getInitialFormData = (): CreateChampionshipCategoryPayload => ({
+  code: '',
+  modality: 'Kata',
+  gender: 'Masculino',
+  beltMinId: 9, 
+  beltMaxId: 12,
+  ageRangeId: 1,
+  weight: null,
+})
+
+const openCreateModal = () => {
+  isEditing.value = false
+  editingCategoryData.value = undefined
+  modalError.value = null
+  isSaving.value = false 
+  showCategoryModal.value = true
 }
 
-const handleAddCategory = () => {
-  // toast.info("Función de agregar categoría próximamente");
-  console.log('Agregar categoría')
+const handleEditCategory = (category: ChampionshipCategoryListItem) => {
+  isEditing.value = true
+  editingCategoryData.value = {
+    id: category.id,
+    code: category.code || '',
+    modality: category.modality,
+    gender: category.gender,
+    weight: category.weight || null,
+    // (IDs hardcodeados - necesita fetchById para ser real)
+    ageRangeId: 1, 
+    beltMinId: 9,  
+    beltMaxId: 12, 
+  }
+  modalError.value = null
+  isSaving.value = false
+  showCategoryModal.value = true
 }
 
-const handleImportExcel = () => {
-  // toast.info("Función de importar Excel próximamente");
-  console.log('Importar Excel')
+const closeModal = () => {
+  showCategoryModal.value = false
+}
+
+const handleSaveCategory = async (data: CreateChampionshipCategoryPayload) => {
+  modalError.value = null
+  isSaving.value = true
+  
+  if (!championshipId.value) {
+    modalError.value = "Error: ID de campeonato no encontrado."
+    isSaving.value = false
+    return
+  }
+
+  try {
+    if (isEditing.value && editingCategoryData.value?.id) {
+      await updateCategory(editingCategoryData.value.id, data as UpdateChampionshipCategoryPayload)
+    } else {
+      await createCategory(championshipId.value, data)
+    }
+    closeModal()
+  } catch (error: any) {
+    console.error("Error al guardar categoría:", error)
+    modalError.value = error.message || "Ocurrió un error."
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const handleDeleteCategory = async (id: number) => {
+  if (window.confirm("¿Estás seguro de que quieres eliminar esta categoría?")) {
+    try {
+      await deleteCategory(id)
+    } catch (error: any) {
+      console.error(error)
+      alert(error.message || "Error al eliminar la categoría.")
+    }
+  }
+}
+
+const handleImportExcel = () => { alert('Importar desde Excel (pendiente)'); }
+
+// --- LÓGICA DE DATATABLE ---
+const tableColumns = ref([
+  { key: 'code', label: 'Código' },
+  { key: 'name', label: 'Categoría' }, 
+  { key: 'modality', label: 'Tipo' },
+  { key: 'ageRangeLabel', label: 'Edad' },
+  { key: 'belt', label: 'Cinturón' }, 
+  { key: 'participantCount', label: 'Inscritos', class: 'text-center' },
+])
+
+// --- Funciones Auxiliares ---
+function generateCategoryName(cat: ChampionshipCategoryListItem): string {
+    let name = `${cat.modality} ${cat.gender} ${cat.ageRangeLabel}`;
+    if (cat.modality === 'Kumite' && cat.weight) {
+        name += ` ${cat.weight}`;
+    }
+    return name;
 }
 </script>

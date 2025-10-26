@@ -2,16 +2,19 @@
   <div> <div class="grid gap-4 md:grid-cols-4 mb-6">
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
         <p class="text-sm text-gray-500">Total Categorías</p>
-        <p class="text-2xl font-bold mt-1">{{ categoriasData.length }}</p>
+        <p class="text-2xl font-bold mt-1">8</p> 
       </div>
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <p class="text-sm text-gray-500">Categorías Filtradas</p> <p class="text-2xl font-bold mt-1">{{ filteredCategorias.length }}</p>
+        <p class="text-sm text-gray-500">Categorías Filtradas</p>
+         <p class="text-2xl font-bold mt-1">{{ filteredCategorias.length }}</p>
       </div>
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <p class="text-sm text-gray-500">Total Inscritos (Todas)</p> <p class="text-2xl font-bold mt-1">{{ totalInscritos }}</p>
+        <p class="text-sm text-gray-500">Total Inscritos (Todas)</p>
+         <p class="text-2xl font-bold mt-1">89</p>
       </div>
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <p class="text-sm text-gray-500">Promedio Inscritos (Todas)</p> <p class="text-2xl font-bold mt-1">{{ promedioInscritos }}</p>
+        <p class="text-sm text-gray-500">Promedio Inscritos (Todas)</p>
+         <p class="text-2xl font-bold mt-1">11</p>
       </div>
     </div>
 
@@ -19,7 +22,7 @@
       <div class="flex flex-col sm:flex-row gap-4 items-center">
         <div class="relative flex-1 w-full sm:w-auto">
            <LucideSearch class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-           <input v-model="searchTerm" type="text" placeholder="Buscar categoría..." class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-0"/>
+           <input v-model="searchTerm" @input="currentPage = 1" type="text" placeholder="Buscar por nombre, código, tipo..." class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-0"/>
         </div>
         <div class="relative w-full sm:w-auto">
             <button @click="toggleFilterPopover" :class="[
@@ -32,9 +35,9 @@
             <div v-if="showFilterPopover" class="absolute right-0 z-10 mt-2 w-72 rounded-lg border border-gray-200 bg-white shadow-lg p-4" ref="filterPopoverRef">
                 <div class="flex items-center justify-between mb-3"><h4 class="font-semibold text-sm">Filtros</h4><button v-if="hasActiveFilters" @click="clearFilters" class="inline-flex items-center gap-1 text-xs text-red-600 hover:underline"><LucideX class="h-3 w-3" /> Limpiar</button></div>
                 <div class="space-y-4">
-                  <div><label for="filter-tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo</label><select v-model="filters.tipo" id="filter-tipo" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"><option value="all">Todos</option><option value="Kata">Kata</option><option value="Kumite">Kumite</option></select></div>
-                  <div><label for="filter-edad" class="block text-sm font-medium text-gray-700 mb-1">Rango Edad</label><select v-model="filters.rangoEdad" id="filter-edad" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"><option value="all">Todos</option><option value="10-13 años">10-13 años</option><option value="14-17 años">14-17 años</option><option value="18+ años">18+ años</option></select></div>
-                  <div><label for="filter-cinturon" class="block text-sm font-medium text-gray-700 mb-1">Nivel Cinturón</label><select v-model="filters.nivelCinturon" id="filter-cinturon" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"><option value="all">Todos</option><option value="Todos los niveles">Todos los niveles</option><option value="Cinturón Negro">Cinturón Negro</option></select></div>
+                  <div><label for="filter-tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo</label><select v-model="filters.modality" @change="currentPage = 1" id="filter-tipo" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"><option value="all">Todos</option><option value="Kata">Kata</option><option value="Kumite">Kumite</option></select></div>
+                  <div><label for="filter-edad" class="block text-sm font-medium text-gray-700 mb-1">Rango Edad</label><select v-model="filters.ageRangeLabel" @change="currentPage = 1" id="filter-edad" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"><option value="all">Todos</option><option v-for="age in uniqueAgeRanges" :key="age" :value="age">{{ age }}</option></select></div>
+                  <div><label for="filter-cinturon" class="block text-sm font-medium text-gray-700 mb-1">Cinturón (Min)</label><select v-model="filters.beltMinName" @change="currentPage = 1" id="filter-cinturon" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"><option value="all">Todos</option><option v-for="belt in uniqueBeltNames" :key="belt" :value="belt">{{ belt }}</option></select></div>
                 </div>
             </div>
         </div>
@@ -42,20 +45,29 @@
     </div>
 
     <div class="mb-6">
-      <div v-if="paginatedCategorias.length === 0" class="text-center py-12 text-gray-500">
+      <div v-if="loading" class="text-center py-12 text-gray-500">
+        <LucideLoader2 class="h-10 w-10 mx-auto mb-3 text-gray-400 animate-spin" />
+        <p>Cargando categorías...</p>
+      </div>
+      <div v-else-if="error" class="text-center py-12 text-red-500">
+        <LucideAlertTriangle class="h-10 w-10 mx-auto mb-3" />
+        <p>{{ error }}</p>
+      </div>
+      <div v-else-if="paginatedCategorias.length === 0" class="text-center py-12 text-gray-500">
         <LucideInbox class="h-10 w-10 mx-auto mb-3 text-gray-400" />
         <p>No se encontraron categorías con los filtros aplicados.</p>
       </div>
+      
       <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div v-for="categoria in paginatedCategorias" :key="categoria.id"
              class="p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex items-start justify-between gap-4">
           <div class="flex-1">
-            <h3 class="font-semibold text-lg mb-2 line-clamp-1">{{ categoria.nombre }}</h3>
+            <h3 class="font-semibold text-lg mb-2 line-clamp-1">{{ generateCategoryName(categoria) }}</h3>
             <div class="flex items-center gap-2 text-gray-500">
               <LucideUsers class="w-4 h-4 shrink-0" />
-              <span class="text-sm">{{ categoria.inscritos }} participantes</span>
+              <span class="text-sm">{{ categoria.participantCount }} participantes</span>
             </div>
-             </div>
+          </div>
           <button @click="viewDetails(categoria.id)" class="shrink-0 inline-flex h-9 items-center justify-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             Ver Detalles
           </button>
@@ -63,20 +75,18 @@
       </div>
     </div>
 
-    <div v-if="totalPages > 0" class="px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 bg-white rounded-b-lg shadow-sm">
+    <div v-if="!loading && !error && totalPages > 1" class="px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 bg-white rounded-b-lg shadow-sm">
        <div class="text-sm text-gray-500">
            Mostrando {{ startIndex + 1 }} - {{ Math.min(endIndex, filteredCategorias.length) }} de {{ filteredCategorias.length }} categorías
        </div>
        <div class="flex items-center gap-2">
            <select
              v-model="itemsPerPage"
-             @change="currentPage = 1"
              class="h-9 rounded-md border border-gray-300 bg-white py-1 px-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"
            >
-             <option :value="3">3 / pág.</option>
              <option :value="6">6 / pág.</option>
-             <option :value="9">9 / pág.</option>
-             <option :value="12">12 / pág.</option>
+             <option :value="10">10 / pág.</option>
+             <option :value="15">15 / pág.</option>
            </select>
            <nav role="navigation" aria-label="pagination" class="flex">
              <ul class="flex flex-row items-center gap-1">
@@ -84,7 +94,8 @@
                <li><button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" class="h-9 flex items-center gap-1 px-3 py-2 text-sm rounded-md border hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft class="h-4 w-4" /><span>Anterior</span></button></li>
                <li v-for="page in visiblePages" :key="page">
                  <button v-if="typeof page === 'number'" @click="goToPage(page)" class="flex h-9 w-9 items-center justify-center rounded-md border text-sm transition-all" :class="[currentPage === page ? 'bg-red-600 text-white border-red-600 cursor-default' : 'hover:bg-gray-100']" :aria-current="currentPage === page ? 'page' : undefined">{{ page }}</button>
-                 <span v-else class="flex h-9 w-9 items-center justify-center text-sm">...</span> </li>
+                 <span v-else class="flex h-9 w-9 items-center justify-center text-sm">...</span>
+               </li>
                <li><button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages" class="h-9 flex items-center gap-1 px-3 py-2 text-sm rounded-md border hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"><span>Siguiente</span><ChevronRight class="h-4 w-4" /></button></li>
                <li><button @click="goToPage(totalPages)" :disabled="currentPage === totalPages" aria-label="Ir a la última página" class="h-9 w-9 flex items-center justify-center rounded-md border hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"><ChevronsRight class="h-4 w-4" /></button></li>
              </ul>
@@ -96,56 +107,98 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-// 👇 Añadimos LucideUsers y LucideInbox
-import { LucideSearch, LucideFilter, LucideX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LucideUsers, LucideInbox } from 'lucide-vue-next';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useChampionshipStore } from '@/modules/championships/store/championships.store';
+import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
+import { LucideSearch, LucideFilter, LucideX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LucideUsers, LucideInbox, LucideLoader2, LucideAlertTriangle } from 'lucide-vue-next';
 
-// --- Interfaces y Datos Hardcodeados ---
-interface Category {
-  id: number;
-  nombre: string;
-  tipo: 'Kata' | 'Kumite';
-  rangoEdad: string;
-  nivelCinturon: string;
-  inscritos: number;
-}
-const categoriasData = ref<Category[]>([
-  { id: 1, nombre: "Kata Senior Masculino", tipo: "Kata", rangoEdad: "18+ años", nivelCinturon: "Todos los niveles", inscritos: 12 },
-  { id: 2, nombre: "Kumite Senior Femenino", tipo: "Kumite", rangoEdad: "18+ años", nivelCinturon: "Todos los niveles", inscritos: 8 },
-  { id: 3, nombre: "Kata Junior Masculino", tipo: "Kata", rangoEdad: "14-17 años", nivelCinturon: "Todos los niveles", inscritos: 15 },
-  { id: 4, nombre: "Kumite Junior Femenino", tipo: "Kumite", rangoEdad: "14-17 años", nivelCinturon: "Todos los niveles", inscritos: 10 },
-  { id: 5, nombre: "Kata Infantil Masculino", tipo: "Kata", rangoEdad: "10-13 años", nivelCinturon: "Todos los niveles", inscritos: 18 },
-  { id: 6, nombre: "Kumite Infantil Femenino", tipo: "Kumite", rangoEdad: "10-13 años", nivelCinturon: "Todos los niveles", inscritos: 14 },
-  { id: 7, nombre: "Kata Senior Negro", tipo: "Kata", rangoEdad: "18+ años", nivelCinturon: "Cinturón Negro", inscritos: 7 },
-  { id: 8, nombre: "Kumite Senior Negro", tipo: "Kumite", rangoEdad: "18+ años", nivelCinturon: "Cinturón Negro", inscritos: 5 },
-]);
+// --- Store y Estado ---
+const route = useRoute();
+const router = useRouter();
+const championshipStore = useChampionshipStore();
+
+// 👇 Usamos los estados de carga/error específicos de categorías
+const { 
+  championshipCategories, // Esta es la lista COMPLETA de categorías
+  categoriesMeta, // Los meta-datos (incluyendo 'total' real)
+  loading, // Estado de carga del store (antes categoriesLoading)
+  error     // Estado de error del store (antes categoriesError)
+} = storeToRefs(championshipStore);
+const { fetchChampionshipCategories } = championshipStore;
+
+const championshipId = computed(() => Number(route.params.id));
 
 // --- Estado de Filtros y Paginación ---
 const searchTerm = ref('');
 const currentPage = ref(1);
-const itemsPerPage = ref(6);
-const filters = ref({ tipo: "all", rangoEdad: "all", nivelCinturon: "all" });
+const itemsPerPage = ref(6); // 💡 Paginación de 6 por defecto
+const filters = ref({
+  modality: "all",
+  ageRangeLabel: "all",
+  beltMinName: "all",
+});
 const showFilterPopover = ref(false);
 const filterPopoverRef = ref<HTMLElement | null>(null);
 
+// --- Carga Inicial de Datos ---
+onMounted(() => {
+  if (championshipId.value && !isNaN(championshipId.value)) {
+    // 💡 Cargamos TODAS las categorías (limit 999) 
+    //    para que el filtro/paginación frontend funcione.
+    fetchChampionshipCategories(championshipId.value, 1, 999); 
+  } else {
+    // Usamos el 'error' local (que es 'categoriesError' del store)
+    error.value = "ID de campeonato inválido en la ruta.";
+  }
+});
+
 // --- Computed Properties ---
-const filteredCategorias = computed<Category[]>(() => {
-  return categoriasData.value.filter(cat => {
-    const matchesSearch = cat.nombre.toLowerCase().includes(searchTerm.value.toLowerCase()); // Solo buscar por nombre
-    const matchesTipo = filters.value.tipo === 'all' || cat.tipo === filters.value.tipo;
-    const matchesRango = filters.value.rangoEdad === 'all' || cat.rangoEdad === filters.value.rangoEdad;
-    const matchesNivel = filters.value.nivelCinturon === 'all' || cat.nivelCinturon === filters.value.nivelCinturon;
-    return matchesSearch && matchesTipo && matchesRango && matchesNivel;
+
+// 1. Filtramos sobre 'championshipCategories' (la lista completa)
+const filteredCategorias = computed<ChampionshipCategoryListItem[]>(() => {
+  if (!Array.isArray(championshipCategories.value)) {
+    return [];
+  }
+  return championshipCategories.value.filter(cat => {
+    const lowerSearch = searchTerm.value.toLowerCase();
+    const descriptiveName = generateCategoryName(cat).toLowerCase();
+    const matchesSearch = descriptiveName.includes(lowerSearch) || (cat.code && cat.code.toLowerCase().includes(lowerSearch));
+    const matchesModality = filters.value.modality === 'all' || cat.modality === filters.value.modality;
+    const matchesAge = filters.value.ageRangeLabel === 'all' || cat.ageRangeLabel === filters.value.ageRangeLabel;
+    const matchesBelt = filters.value.beltMinName === 'all' || cat.beltMinName === filters.value.beltMinName;
+    return matchesSearch && matchesModality && matchesAge && matchesBelt;
   });
 });
-const hasActiveFilters = computed<boolean>(() => filters.value.tipo !== 'all' || filters.value.rangoEdad !== 'all' || filters.value.nivelCinturon !== 'all');
-const activeFilterCount = computed<number>(() => (filters.value.tipo !== 'all' ? 1 : 0) + (filters.value.rangoEdad !== 'all' ? 1 : 0) + (filters.value.nivelCinturon !== 'all' ? 1 : 0));
-const totalPages = computed<number>(() => Math.max(1, Math.ceil(filteredCategorias.value.length / itemsPerPage.value))); // Asegura al menos 1 página
+
+// 2. Opciones únicas para los selects (basadas en la lista completa)
+const uniqueAgeRanges = computed(() => [...new Set(championshipCategories.value.map(c => c.ageRangeLabel).filter(Boolean))].sort());
+const uniqueBeltNames = computed(() => [...new Set(championshipCategories.value.map(c => c.beltMinName).filter(Boolean))].sort());
+
+// 3. Paginación (calculada sobre los datos YA filtrados)
+const totalPages = computed<number>(() => Math.max(1, Math.ceil(filteredCategorias.value.length / itemsPerPage.value)));
 const startIndex = computed<number>(() => (currentPage.value - 1) * itemsPerPage.value);
 const endIndex = computed<number>(() => startIndex.value + itemsPerPage.value);
-const paginatedCategorias = computed<Category[]>(() => filteredCategorias.value.slice(startIndex.value, endIndex.value));
-const totalInscritos = computed<number>(() => categoriasData.value.reduce((sum, cat) => sum + cat.inscritos, 0));
-const promedioInscritos = computed<number>(() => categoriasData.value.length > 0 ? Math.round(totalInscritos.value / categoriasData.value.length) : 0);
+const paginatedCategorias = computed<ChampionshipCategoryListItem[]>(() => filteredCategorias.value.slice(startIndex.value, endIndex.value));
+
+// 4. Estadísticas (Total Inscritos y Promedio ahora son hardcodeados)
+const totalInscritos = ref(89); // 💡 Hardcodeado
+const promedioInscritos = ref(11); // 💡 Hardcodeado
+
+// 💡 (Calculamos estos solo para el template, pero no los usamos en los stats)
+const totalFilteredParticipants = computed<number>(() => filteredCategorias.value.reduce((sum, cat) => sum + cat.participantCount, 0));
+const averageParticipantsPerFilteredCategory = computed<number | string>(() => {
+    if (filteredCategorias.value.length === 0) return 0;
+    return Math.round(totalFilteredParticipants.value / filteredCategorias.value.length);
+});
+
+
+// 5. Filtros activos (sin cambios)
+const hasActiveFilters = computed<boolean>(() => filters.value.modality !== 'all' || filters.value.ageRangeLabel !== 'all' || filters.value.beltMinName !== 'all');
+const activeFilterCount = computed<number>(() => (filters.value.modality !== 'all' ? 1 : 0) + (filters.value.ageRangeLabel !== 'all' ? 1 : 0) + (filters.value.beltMinName !== 'all' ? 1 : 0));
+
+// 6. Paginación (sin cambios)
 const visiblePages = computed<(number | string)[]>(() => {
   const total = totalPages.value
   const current = currentPage.value
@@ -156,14 +209,19 @@ const visiblePages = computed<(number | string)[]>(() => {
   return pages;
 });
 
-// --- Handlers ---
+// --- Watcher para resetear la página ---
+watch([searchTerm, filters, itemsPerPage], () => {
+    currentPage.value = 1;
+}, { deep: true });
+
+// --- Handlers (sin cambios) ---
 const goToPage = (page: number | string) => {
   if (typeof page === 'string') return;
   if (page >= 1 && page <= totalPages.value) { currentPage.value = page; }
 };
-const clearFilters = () => { filters.value = { tipo: "all", rangoEdad: "all", nivelCinturon: "all" }; searchTerm.value = ''; currentPage.value = 1; showFilterPopover.value = false; };
+const clearFilters = () => { filters.value = { modality: "all", ageRangeLabel: "all", beltMinName: "all" }; searchTerm.value = ''; showFilterPopover.value = false; };
 const toggleFilterPopover = () => { showFilterPopover.value = !showFilterPopover.value; };
-const viewDetails = (id: number) => { alert(`Ver detalles de categoría ${id} (pendiente)`); };
+const viewDetails = (categoryId: number) => { alert(`Ver detalles de categoría ${categoryId} (pendiente)`); };
 const handleClickOutside = (event: MouseEvent) => {
     if (filterPopoverRef.value && !filterPopoverRef.value.contains(event.target as Node)) {
         const triggerButton = (event.target as Element).closest('button');
@@ -174,4 +232,12 @@ const handleClickOutside = (event: MouseEvent) => {
 onMounted(() => { document.addEventListener('click', handleClickOutside); });
 onBeforeUnmount(() => { document.removeEventListener('click', handleClickOutside); });
 
+// --- Funciones Auxiliares (sin cambios) ---
+function generateCategoryName(cat: ChampionshipCategoryListItem): string {
+    let name = `${cat.modality} ${cat.gender} ${cat.ageRangeLabel}`;
+    if (cat.modality === 'Kumite' && cat.weight) {
+        name += ` ${cat.weight}`;
+    }
+    return name;
+}
 </script>

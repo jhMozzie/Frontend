@@ -26,7 +26,7 @@
             <button
               :class="[
                 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none',
-                'h-9', // Altura consistente
+                'h-9',
                 (hasActiveFilters || isOpen) ? 'border-red-600 text-red-700 bg-red-50 hover:bg-red-100' : 'border-gray-300 bg-transparent text-gray-700 hover:bg-gray-50'
               ]"
             >
@@ -98,7 +98,7 @@
       {{ categoriesError }}
     </div>
 
-    <div v-else class="rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+    <div v-else class="rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
       <DataTable :data="filteredPaginatedCategories" :columns="tableColumns">
         <template #name="{ item }">
           <span class="font-medium text-gray-900">{{ generateCategoryName(item) }}</span>
@@ -113,12 +113,12 @@
         </template>
 
         <template #actions="{ item }">
-          <div class="flex justify-end gap-2">
+          <div class="flex justify-end gap-2 whitespace-nowrap">
             <button @click="handleEditCategory(item)" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900">
-              <LucidePencil class="w-4 h-4" /> Editar
+              <LucidePencil class="w-4 h-4" />
             </button>
             <button @click="handleDeleteCategory(item.id)" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800">
-              <LucideTrash2 class="w-4 h-4" /> Eliminar
+              <LucideTrash2 class="w-4 h-4" />
             </button>
           </div>
         </template>
@@ -232,23 +232,19 @@ onMounted(() => {
 })
 
 // --- Lógica de Filtros ---
-// 👇 'hasActiveFilters' ahora incluye 'ageFilter'
-const hasActiveFilters = computed<boolean>(() => 
-  filters.value.beltMinName !== 'all' || 
-  ageFilter.value !== 'all'
-);
-const activeFilterCount = computed<number>(() => 
-  (filters.value.beltMinName !== 'all' ? 1 : 0) +
-  (ageFilter.value !== 'all' ? 1 : 0)
-);
+const hasActiveFilters = computed<boolean>(() => {
+  return filters.value.beltMinName !== 'all' || ageFilter.value !== 'all'
+});
+const activeFilterCount = computed<number>(() => {
+  return (filters.value.beltMinName !== 'all' ? 1 : 0) + (ageFilter.value !== 'all' ? 1 : 0)
+});
 
 const clearFilters = () => {
   filters.value = { beltMinName: "all" };
-  ageFilter.value = 'all'; // 👈 Limpiamos el filtro de edad también
+  ageFilter.value = 'all';
   currentPage.value = 1;
 };
 
-// Función para mapear ageRangeLabel a grupo
 function getAgeGroup(ageRangeLabel: string): string {
   if (ageRangeLabel.includes('U14')) return 'Infantil';
   if (ageRangeLabel.includes('Cadete') || ageRangeLabel.includes('Junior')) return 'Juvenil';
@@ -256,13 +252,9 @@ function getAgeGroup(ageRangeLabel: string): string {
   return 'Otro';
 }
 
-// ===================================================================
-// === 👇 AQUÍ VA LA CORRECCIÓN 👇 ===
-// ===================================================================
 const filteredCategories = computed(() => {
   if (!Array.isArray(championshipCategories.value)) return [];
   
-  // 1. Filtramos los datos
   const filtered = championshipCategories.value.filter(cat => {
     const matchesQuickFilter = quickFilter.value === 'all' || cat.modality === quickFilter.value;
     const matchesAgeFilter = ageFilter.value === 'all' || getAgeGroup(cat.ageRangeLabel) === ageFilter.value;
@@ -270,18 +262,13 @@ const filteredCategories = computed(() => {
     return matchesQuickFilter && matchesAgeFilter && matchesBelt;
   });
 
-  // 2. Ordenamos los datos filtrados por 'code'
+  // Ordenamos por 'code'
   return filtered.sort((a, b) => {
-    const codeA = a.code || ''; // Maneja null/undefined
-    const codeB = b.code || ''; // Maneja null/undefined
-    
-    // localeCompare con 'numeric: true' ordena "A1", "A2", "A10", "B1" correctamente
+    const codeA = a.code || '';
+    const codeB = b.code || '';
     return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
   });
 });
-// ===================================================================
-// === 👆 FIN DE LA CORRECCIÓN 👆 ===
-// ===================================================================
 
 // --- Paginación ---
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredCategories.value.length / itemsPerPage.value)));
@@ -289,13 +276,10 @@ const startIndex = computed(() => (currentPage.value - 1) * itemsPerPage.value);
 const endIndex = computed(() => startIndex.value + itemsPerPage.value);
 const filteredPaginatedCategories = computed(() => filteredCategories.value.slice(startIndex.value, endIndex.value));
 
-// Opciones para los <select> del popover
-// (uniqueAgeRanges ya no es necesario para el popover, pero lo dejamos para el modal si lo necesitas)
 const uniqueAgeRanges = computed(() => [...new Set(championshipCategories.value.map(c => c.ageRangeLabel).filter(Boolean))].sort());
 const uniqueBeltNames = computed(() => [...new Set(championshipCategories.value.map(c => c.beltMinName).filter(Boolean))].sort());
 
 
-// Watcher para resetear la página (ya incluye 'ageFilter')
 watch([quickFilter, ageFilter, filters, itemsPerPage], () => {
     currentPage.value = 1;
 }, { deep: true });
@@ -373,13 +357,13 @@ const handleSaveCategory = async (data: CreateChampionshipCategoryPayload) => {
 }
 
 const handleDeleteCategory = async (id: number) => {
-  if (window.confirm("¿Estás seguro de que quieres eliminar esta categoría?")) {
-    try {
-      await deleteCategory(id)
-    } catch (error: any) {
-      console.error(error)
-      alert(error.message || "Error al eliminar la categoría.")
-    }
+  if (!window.confirm("¿Estás seguro de que quieres eliminar esta categoría?")) return;
+
+  try {
+    await deleteCategory(id)
+  } catch (error: any) {
+    console.error(error)
+    alert(error.message || "Error al eliminar la categoría.")
   }
 }
 
@@ -389,10 +373,10 @@ const handleImportExcel = () => { alert('Importar desde Excel (pendiente)'); }
 const tableColumns = ref([
   { key: 'code', label: 'Código' },
   { key: 'name', label: 'Categoría' }, 
-  { key: 'modality', label: 'Tipo' },
+  // { key: 'modality', label: 'Tipo' }, // <-- Columna eliminada
   { key: 'ageRangeLabel', label: 'Edad' },
   { key: 'belt', label: 'Cinturón' }, 
-  { key: 'participantCount', label: 'Inscritos', class: 'text-center' },
+  { key: 'participantCount', label: 'Inscritos' },
 ])
 
 // --- Funciones Auxiliares ---

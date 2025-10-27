@@ -2,9 +2,11 @@
 import { api } from "@/services/api";
 import type {
   PaginatedParticipantsResponse,
-  ParticipantStudentItem, // Usamos el tipo de Estudiante
+  ParticipantStudentItem,
   CreateParticipantPayload,
-  ParticipantListParams
+  ParticipantListParams,
+  // 💥 Importar el nuevo tipo
+  UpdateParticipantPayload 
 } from "../types/participants.types";
 
 /**
@@ -18,20 +20,17 @@ export const participantService = {
   async getPaginatedParticipants(params: ParticipantListParams) {
     const { data } = await api.get<PaginatedParticipantsResponse>(
       `/participants`, 
-      { params } // Pasa { page, limit, championshipId, etc. } como query params
+      { params }
     );
     return data;
   },
 
   /**
    * Obtiene un participante específico por su ID
-   * (Nota: Tu backend service getById devuelve una *inscripción*, 
-   * mientras que getPaginated devuelve un *estudiante*. 
-   * Esto puede necesitar ajuste si 'Editar' debe cargar más datos)
    */
   async getParticipantById(participantId: number) {
     // Esta ruta devuelve una sola inscripción, no un estudiante agrupado
-    const { data } = await api.get( // Tipo 'any' por ahora
+    const { data } = await api.get( 
       `/participants/${participantId}`
     );
     return data;
@@ -48,6 +47,21 @@ export const participantService = {
     return data;
   },
 
+  // 💥 NUEVO MÉTODO: Actualización Individual (PATCH/PUT)
+  /**
+   * Actualiza la categoría de una inscripción individual.
+   * Llama a: PUT/PATCH /participants/:id
+   */
+  async updateParticipantInscription(participantId: number, payload: UpdateParticipantPayload) {
+    // Usamos PATCH que es la convención más común para actualizar un campo, 
+    // pero funciona con PUT si el backend lo acepta.
+    const { data } = await api.patch(
+      `/participants/${participantId}`,
+      payload
+    );
+    return data;
+  },
+  
   /**
    * Elimina una inscripción (participante)
    */

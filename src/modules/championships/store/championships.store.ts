@@ -1,3 +1,5 @@
+// src/modules/championships/store/championships.store.ts
+
 import { defineStore } from "pinia"
 import { ref } from "vue"
 
@@ -5,30 +7,58 @@ import { ref } from "vue"
 import { championshipService } from "../services/championships.service"
 import { championshipCategoryService } from "../services/championships-categories.service" 
 import { participantService } from "../services/participants.service"
+import { studentService } from '@/modules/students/services/students.service'
 
-// --- 2. Importación de Tipos de Campeonato ---
+// --- 2. Importación de Tipos (Desde el index central) ---
 import type {
   Championship,
   ChampionshipResponse,
   CreateChampionshipDto,
   UpdateChampionshipDto,
-} from "../types/championships.types"
-
-// --- 3. Importación de Tipos de Categoría ---
-import type {
   ChampionshipCategoryListItem,
   PaginatedCategoriesResponse,
   CreateChampionshipCategoryPayload,
-  UpdateChampionshipCategoryPayload
-} from "../types/championships-categories.types"
+  UpdateChampionshipCategoryPayload,
+  ParticipantStudentItem,
+  PaginatedParticipantsResponse,
+  CreateParticipantPayload,
+  ParticipantListParams,
+  Inscription
+} from "../types"; 
 
-// --- 4. Importación de Tipos de Participante (Actualizados) ---
-import type {
-    ParticipantStudentItem, // 👈 Usamos el tipo de Estudiante Agrupado
-    PaginatedParticipantsResponse, // 👈 Usamos la respuesta paginada de Estudiantes
-    CreateParticipantPayload,
-    ParticipantListParams
-} from "../types/participants.types"
+// TIPOS ASUMIDOS
+type StudentSearchResult = { id: number, name: string };
+type StudentListResponse = { data: any[], meta: any }; 
+
+// ===================================================================
+// === FUNCIÓN DE AYUDA: AGRUPAR INSCRIPCIONES (FRONTEND MAPPER)
+// ===================================================================
+function groupInscriptions(data: any[]): ParticipantStudentItem[] {
+    const grouped = new Map<number, ParticipantStudentItem>();
+
+    for (const item of data) {
+        const studentId = item.studentId;
+        
+        const inscription: Inscription = {
+            participantId: item.id,
+            categoryId: item.championshipCategoryId,
+            categoryName: item.categoryName,
+        };
+
+        if (grouped.has(studentId)) {
+            grouped.get(studentId)!.inscriptions.push(inscription);
+        } else {
+            grouped.set(studentId, {
+                id: studentId,
+                studentName: item.studentName,
+                academyName: item.academyName,
+                beltName: item.beltName,
+                inscriptions: [inscription]
+            });
+        }
+    }
+    return Array.from(grouped.values());
+}
 
 
 export const useChampionshipStore = defineStore("championships", () => {
@@ -37,20 +67,16 @@ export const useChampionshipStore = defineStore("championships", () => {
   // === ESTADO (STATE)
   // ===================================================================
 
-  // --- Estado General / Principal (Carga del Layout) ---
   const loading = ref(false) 
   const error = ref<string | null>(null)
 
-  // --- Estado: Lista de Campeonatos (ListView) ---
   const championships = ref<Championship[]>([])
   const meta = ref<ChampionshipResponse["meta"]>({
     total: 0, page: 1, limit: 10, totalPages: 1,
   })
 
-  // --- Estado: Detalle de Campeonato (DetailView) ---
   const currentChampionship = ref<Championship | null>(null)
   
-  // --- Estado: Categorías ---
   const championshipCategories = ref<ChampionshipCategoryListItem[]>([])
   const categoriesMeta = ref<PaginatedCategoriesResponse["meta"]>({
     total: 0, page: 1, limit: 10, totalPages: 1,
@@ -58,13 +84,15 @@ export const useChampionshipStore = defineStore("championships", () => {
   const categoriesLoading = ref(false)
   const categoriesError = ref<string | null>(null)
   
-  // --- 👇 Estado: Participantes (Corregido) ---
-  const championshipParticipants = ref<ParticipantStudentItem[]>([]) // 👈 TIPO CORREGIDO
+  const championshipParticipants = ref<any[]>([]); 
   const participantsMeta = ref<PaginatedParticipantsResponse["meta"]>({
     total: 0, page: 1, limit: 10, totalPages: 1,
   })
   const participantsLoading = ref(false)
   const participantsError = ref<string | null>(null)
+
+  const studentsResults = ref<StudentSearchResult[]>([]);
+  const studentsLoading = ref(false);
 
 
   // ===================================================================
@@ -89,11 +117,10 @@ export const useChampionshipStore = defineStore("championships", () => {
     loading.value = true
     error.value = null
     currentChampionship.value = null
-    // Resetea todos los estados de detalle
     championshipCategories.value = []
     categoriesMeta.value = { total: 0, page: 1, limit: 10, totalPages: 1 }
-    championshipParticipants.value = [] // 👈 Resetea participantes
-    participantsMeta.value = { total: 0, page: 1, limit: 10, totalPages: 1 } // 👈 Resetea meta de participantes
+    championshipParticipants.value = [] 
+    participantsMeta.value = { total: 0, page: 1, limit: 10, totalPages: 1 } 
 
     try {
       const data = await championshipService.getById(id)
@@ -199,7 +226,7 @@ export const useChampionshipStore = defineStore("championships", () => {
     } catch (err: any) {
         console.error("Error en deleteCategory (store):", err);
         throw err;
-    }
+     }
   }
 
   // ===================================================================
@@ -207,14 +234,17 @@ export const useChampionshipStore = defineStore("championships", () => {
   // ===================================================================
 
   /**
-   * Carga los participantes PAGINADOS y filtrados (agrupados por estudiante).
+   * Carga los participantes (inscripciones individuales).
    */
   const fetchParticipants = async (params: ParticipantListParams) => {
     participantsLoading.value = true;
     participantsError.value = null;
     try {
       const response = await participantService.getPaginatedParticipants(params);
-      championshipParticipants.value = response.data; // 👈 Asigna ParticipantStudentItem[]
+      
+      // Asignamos los datos individuales tal cual vienen del backend
+      championshipParticipants.value = response.data; 
+      
       Object.assign(participantsMeta.value, response.meta);
     } catch (err: any) {
       participantsError.value = err.message || "Error al obtener participantes";
@@ -261,45 +291,74 @@ export const useChampionshipStore = defineStore("championships", () => {
       throw err;
     }
   }
+  
+  // 💥 ACCIÓN PARA BÚSQUEDA DE ESTUDIANTES
+  const searchStudents = async (query: string) => {
+    studentsLoading.value = true;
+    studentsResults.value = []; 
+    try {
+        if (query.length < 3) {
+            return;
+        }
+    const resp = await studentService.getAll(1, 50) as StudentListResponse;
+    const list = resp.data || [];
+    const q = query.toLowerCase();
+    studentsResults.value = list
+      .filter((s: any) => (`${s.firstname} ${s.lastname}`).toLowerCase().includes(q))
+      .map((s: any) => ({ id: s.id, name: `${s.firstname} ${s.lastname}` }));
+
+    } catch (err: any) {
+        console.error("Error al buscar estudiantes:", err);
+    } finally {
+        studentsLoading.value = false;
+    }
+  }
+
+  // 💥 ACCIÓN DE EDICIÓN GRANULAR (CORRECCIÓN)
+  const updateParticipantInscription = async (
+    participantId: number, 
+    newCategoryId: number
+  ) => {
+      try {
+        // 1. Llama al servicio para actualizar la única inscripción por Participant ID
+        await participantService.updateParticipantInscription(participantId, {
+            championshipCategoryId: newCategoryId
+        });
+
+        // 2. Recargamos la lista para ver los cambios
+        await fetchParticipants({
+          championshipId: currentChampionship.value!.id,
+          page: participantsMeta.value.page,
+          limit: participantsMeta.value.limit
+        });
+
+      } catch (err: any) {
+          console.error("Error al actualizar la inscripción:", err);
+          throw err;
+      }
+  }
+
 
   // ===================================================================
   // === EXPORTACIONES (RETURN)
   // ===================================================================
   return {
-    // --- Estado General ---
-    loading,
-    error,
-
-    // --- Campeonato ---
-    championships,
-    meta,
-    currentChampionship,
-    // --- Acciones Campeonato ---
-    fetchChampionships,
-    fetchChampionshipById,
-    createChampionship,
-    updateChampionship,
-    deleteChampionship,
-
-    // --- Categorías ---
-    championshipCategories,
-    categoriesMeta,
-    categoriesLoading,
-    categoriesError,
-    // --- Acciones Categorías ---
-    fetchChampionshipCategories,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-    
-    // --- Participantes ---
+    loading, error,
+    championships, meta, currentChampionship,
+    fetchChampionships, fetchChampionshipById, createChampionship, updateChampionship, deleteChampionship,
+    championshipCategories, categoriesMeta, categoriesLoading, categoriesError, fetchChampionshipCategories, createCategory, updateCategory, deleteCategory,
     championshipParticipants,
     participantsMeta,
     participantsLoading,
     participantsError,
-    // --- Acciones Participantes ---
     fetchParticipants,
     createParticipant,
     deleteParticipant,
+    
+    groupInscriptions, // Exportamos la función de agrupación para la vista de edición
+    studentsResults,
+    studentsLoading,
+    searchStudents,
+    updateParticipantInscription,
   }
 })

@@ -4,10 +4,9 @@
 export interface ParticipantListParams {
     page?: number;
     limit?: number;
-    championshipId: number; // El ID del campeonato es obligatorio
-    categoryId?: number;     // Filtro opcional
-    studentId?: number;      // Filtro opcional
-    // (Puedes añadir más filtros aquí si el backend los soporta, ej: academyName)
+    championshipId: number;
+    categoryId?: number;
+    studentId?: number;
 }
 
 /**
@@ -20,11 +19,19 @@ export interface CreateParticipantPayload {
 }
 
 /**
+ * 💥 NUEVO TIPO: Payload para actualizar la categoría de una sola inscripción.
+ * (Usado en el método PATCH/PUT /participants/:id).
+ */
+export interface UpdateParticipantPayload {
+    championshipCategoryId: number;
+}
+
+/**
  * Define la estructura de una inscripción individual
  * (Usado dentro del modal y en ParticipantStudentItem)
  */
 export interface Inscription {
-    participantId: number; // ID de la tabla Participant (para borrar)
+    participantId: number;
     categoryId: number;
     categoryName: string;
 }
@@ -33,11 +40,11 @@ export interface Inscription {
  * El objeto principal para la lista: UN estudiante y SUS inscripciones
  */
 export interface ParticipantStudentItem {
-    id: number; // ID del Estudiante
+    id: number;
     studentName: string;
     academyName: string;
     beltName: string;
-    inscriptions: Inscription[]; // Array de sus inscripciones
+    inscriptions: Inscription[];
 }
 
 /**

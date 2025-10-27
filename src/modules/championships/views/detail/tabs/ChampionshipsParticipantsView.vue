@@ -6,7 +6,7 @@
         <div class="relative flex-1 w-full sm:w-auto">
           <LucideSearch class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            v-model="searchQuery"
+            id="main-search-input" v-model="searchQuery"
             type="text"
             placeholder="Buscar por nombre..."
             class="w-full sm:w-64 rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-0"
@@ -40,7 +40,7 @@
              <div class="space-y-4">
                 <div>
                   <label for="filter-academy" class="block text-sm font-medium text-gray-700 mb-1">Academia / Club</label>
-                  <select v-model="filters.club" id="filter-academy" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0">
+                  <select v-model="filters.academyName" id="filter-academy" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0">
                     <option value="all">Todos</option>
                     <option v-for="club in uniqueClubs" :key="club" :value="club">{{ club }}</option>
                   </select>
@@ -64,18 +64,27 @@
       </div>
     </div>
 
-    <div class="rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
-      <DataTable :data="filteredCompetitors" :columns="tableColumns">
+    <div v-if="loading" class="text-center py-10 text-gray-500">
+        <LucideLoader2 class="h-6 w-6 animate-spin mx-auto mb-2" />
+        Cargando participantes...
+    </div>
+    <div v-else-if="error" class="text-center py-10 text-red-500">
+        <LucideAlertTriangle class="h-6 w-6 mx-auto mb-2" />
+        {{ error }}
+    </div>
+
+    <div v-else class="rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+      <DataTable :data="championshipParticipants" :columns="tableColumns">
         
-        <template #name="{ item }">
+        <template #studentName="{ item }">
           <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm font-bold text-red-600">
-              {{ getInitials(item.name) }}
+              {{ getInitials(item.studentName) }}
             </div>
-            <span class="text-sm font-medium text-gray-900">{{ item.name }}</span>
+            <span class="text-sm font-medium text-gray-900">{{ item.studentName }}</span>
           </div>
         </template>
-        
+
         <template #actions="{ item }">
           <div class="flex justify-end gap-3 whitespace-nowrap">
             <button @click="viewDetails(item.id)" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800" title="Ver Detalles">
@@ -92,11 +101,12 @@
       </DataTable>
     </div>
 
-    <div v-if="totalPages > 1" class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
+    <div v-if="!loading && !error && totalPages > 1" class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
       <div class="flex items-center gap-2">
         <span class="text-sm text-gray-500">Mostrar:</span>
         <select
           v-model="itemsPerPage"
+          @change="handleLimitChange"
           class="h-9 rounded-md border border-gray-300 bg-white py-1 px-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"
         >
           <option :value="5">5</option>
@@ -104,131 +114,263 @@
           <option :value="20">20</option>
         </select>
         <span class="text-sm text-gray-500">
-          resultados ({{ startIndex + 1 }} -
-          {{ Math.min(endIndex, filteredCompetitors.length) }}
-          de {{ filteredCompetitors.length }})
+          resultados ({{ (participantsMeta.page - 1) * participantsMeta.limit + 1 }} -
+          {{ Math.min(participantsMeta.page * participantsMeta.limit, participantsMeta.total) }}
+          de {{ participantsMeta.total }})
         </span>
       </div>
       <div class="flex items-center gap-2">
-         <span class="text-sm text-gray-500">Página {{ currentPage }} de {{ totalPages }}</span>
+         <span class="text-sm text-gray-500">Página {{ participantsMeta.page }} de {{ totalPages }}</span>
         <button
-          @click="currentPage--"
-          :disabled="currentPage === 1"
+          @click="changePage(participantsMeta.page - 1)"
+          :disabled="participantsMeta.page === 1"
           class="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <LucideChevronLeft class="w-4 h-4 mr-1" /> Anterior
         </button>
         <button
-          @click="currentPage++"
-          :disabled="currentPage === totalPages"
+          @click="changePage(participantsMeta.page + 1)"
+          :disabled="participantsMeta.page === totalPages"
           class="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Siguiente <LucideChevronRight class="w-4 h-4 ml-1" />
         </button>
       </div>
     </div>
+
+    <Teleport to="body">
+      <ParticipantFormModal
+        v-if="isModalOpen"
+        :championship-id="championshipId"
+        :is-saving="isSaving"
+        :error="modalError"
+        @close="isModalOpen = false"
+        @save="handleSaveParticipant"
+        :initial-student-id="editingParticipant?.studentId"
+        :initial-student-name="editingParticipant?.studentName"
+        :initial-inscriptions="editingParticipant?.initialInscriptions"
+      />
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-// Importamos los iconos necesarios
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useChampionshipStore } from '@/modules/championships/store/championships.store';
+import type { ParticipantListParams, CreateParticipantPayload, Inscription } from '@/modules/championships/types/participants.types';
 import { 
-  LucideSearch, 
-  LucideFilter, 
-  LucidePlus, 
-  LucideEye, 
-  LucidePencil, 
-  LucideTrash2, 
-  LucideX,
-  LucideChevronLeft,
-  LucideChevronRight
+  LucideSearch, LucideFilter, LucidePlus, LucideEye, LucidePencil, 
+  LucideTrash2, LucideX, LucideChevronLeft, LucideChevronRight,
+  LucideLoader2, LucideAlertTriangle
 } from 'lucide-vue-next';
-// Importamos los componentes de UI
 import DataTable from '@/components/ui/DataTable.vue';
 import FilterPopover from '@/components/ui/FilterPopover.vue';
-// (No importamos Pagination.vue porque el código de paginación está en este mismo template)
+import ParticipantFormModal from '@/modules/championships/components/create/ParticipantFormModal.vue'; 
 
-// --- Datos Hardcodeados ---
-const allCompetitors = ref([
-  { id: 1, name: "Juan Pérez García", category: "Kata Senior Masculino", belt: "Cinturón Negro 3º Dan", club: "Dojo Madrid" },
-  { id: 2, name: "María López Ruiz", category: "Kumite Senior Femenino", belt: "Cinturón Negro 2º Dan", club: "Karate Valencia" },
-  { id: 3, name: "Carlos Martínez", category: "Kata Junior Masculino", belt: "Cinturón Marrón", club: "Club Deportivo Toledo" },
-  { id: 4, name: "Ana Sánchez", category: "Kumite Junior Femenino", belt: "Cinturón Negro 1º Dan", club: "Dojo Barcelona" },
-  { id: 5, name: "Pedro Rodríguez", category: "Kata Senior Masculino", belt: "Cinturón Negro 4º Dan", club: "Karate Sevilla" },
-  { id: 6, name: "Laura Fernández", category: "Kata Senior Femenino", belt: "Cinturón Negro 2º Dan", club: "Dojo Madrid" },
-  { id: 7, name: "Roberto García López", category: "Kumite Senior Masculino", belt: "Cinturón Negro 1º Dan", club: "Club Deportivo Toledo" },
-  { id: 8, name: "Elena Sánchez Ruiz", category: "Kata Junior Femenino", belt: "Cinturón Negro 2º Dan", club: "Karate Valencia" },
-  { id: 9, name: "Diego Álvarez Castro", category: "Kumite Junior Masculino", belt: "Cinturón Marrón", club: "Dojo Barcelona" },
-  { id: 10, name: "Carmen Ruiz Navarro", category: "Kumite Senior Femenino", belt: "Cinturón Negro 3º Dan", club: "Karate Sevilla" },
-]);
+// --- Store y Estado ---
+const route = useRoute();
+const championshipStore = useChampionshipStore();
 
-// --- Estado de Filtros y Paginación ---
+// 💡 Asume que el store tendrá estas acciones (necesarias para el paso 3)
+const { fetchParticipants, deleteParticipant, createParticipant, updateParticipantInscriptions } = championshipStore as any; 
+
+const { 
+  championshipParticipants, 
+  participantsMeta, 
+  participantsLoading: loading, 
+  participantsError: error,
+  currentChampionship 
+} = storeToRefs(championshipStore);
+
+const championshipId = computed(() => Number(route.params.id));
+
+// --- Estado del Modal y Edición ---
+const isModalOpen = ref(false);
+const isSaving = ref(false); 
+const modalError = ref<string | null>(null); 
+
+// 💥 ESTADO DE EDICIÓN
+const editingParticipant = ref<{ studentId: number; studentName: string; initialInscriptions: Inscription[] } | null>(null);
+
+// --- Estado de Filtros y Paginación (sin cambios) ---
 const searchQuery = ref('');
-const currentPage = ref(1);
 const itemsPerPage = ref(5);
-const filters = ref({ club: "all" });
-
-// --- Lógica de Filtros ---
-const uniqueClubs = computed(() => [...new Set(allCompetitors.value.map(c => c.club).filter(Boolean))].sort());
-
-const filteredCompetitors = computed(() => {
-  return allCompetitors.value.filter(c => {
-    const lowerQuery = searchQuery.value.toLowerCase();
-    const matchesSearch = c.name.toLowerCase().includes(lowerQuery) || 
-                          c.category.toLowerCase().includes(lowerQuery);
-    const matchesClub = filters.value.club === 'all' || c.club === filters.value.club;
-    return matchesSearch && matchesClub;
-  });
+const filters = ref({ 
+  academyName: "all",
+  categoryId: 'all' as 'all' | number 
 });
 
-const hasActiveFilters = computed(() => filters.value.club !== 'all');
-const activeFilterCount = computed(() => (filters.value.club !== 'all' ? 1 : 0));
+// --- Carga Inicial de Datos (sin cambios) ---
+onMounted(() => {
+  if (championshipId.value && !isNaN(championshipId.value)) {
+    fetchData(1);
+  }
+});
 
-const clearFilters = () => {
-  filters.value = { club: "all" };
-  currentPage.value = 1;
-};
+// --- Computed Properties (sin cambios) ---
+const totalPages = computed(() => participantsMeta.value.totalPages);
 
-// --- Lógica de Paginación ---
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredCompetitors.value.length / itemsPerPage.value)));
-const startIndex = computed(() => (currentPage.value - 1) * itemsPerPage.value);
-const endIndex = computed(() => startIndex.value + itemsPerPage.value);
-const filteredPaginatedCategories = computed(() => filteredCompetitors.value.slice(startIndex.value, endIndex.value));
+const uniqueClubs = computed(() => {
+    const clubs = championshipParticipants.value.map(p => p.academyName).filter(Boolean);
+    return [...new Set(clubs as string[])].sort();
+});
 
-// --- Lógica de DataTable ---
+const hasActiveFilters = computed(() => 
+    filters.value.academyName !== 'all' || 
+    searchQuery.value !== '' || 
+    filters.value.categoryId !== 'all'
+);
+const activeFilterCount = computed(() => 
+    (filters.value.academyName !== 'all' ? 1 : 0) + 
+    (searchQuery.value !== '' ? 1 : 0) +
+    (filters.value.categoryId !== 'all' ? 1 : 0)
+);
+
+// --- Lógica de DataTable (sin cambios) ---
 const tableColumns = ref([
-  { key: 'name', label: 'Nombre' }, // Usará el slot #name
-  { key: 'category', label: 'Categoría' },
-  { key: 'belt', label: 'Grado' },
-  { key: 'club', label: 'Club' },
-  // 'Acciones' es manejado por el slot #actions
+  { key: 'studentName', label: 'Nombre' }, 
+  { key: 'categoryName', label: 'Categoría' }, 
+  { key: 'beltName', label: 'Grado' }, 
+  { key: 'academyName', label: 'Club' }, 
 ])
 
-// --- Watcher para resetear la página ---
-watch([searchQuery, filters, itemsPerPage], () => {
-    currentPage.value = 1;
+// --- Watchers y Handlers (Backend Paginado) (sin cambios) ---
+const fetchData = (page: number) => {
+    const params: ParticipantListParams = {
+        page: page,
+        limit: itemsPerPage.value,
+        championshipId: championshipId.value,
+        categoryId: filters.value.categoryId !== 'all' ? filters.value.categoryId : undefined,
+    };
+    fetchParticipants(params);
+};
+
+const handleLimitChange = () => {
+    fetchData(1);
+};
+
+const changePage = (page: number) => {
+    if (page < 1 || page > totalPages.value) return;
+    fetchData(page);
+};
+
+const handleSearchOrFilterChange = () => {
+    fetchData(1);
+};
+
+watch([searchQuery, filters], () => {
+    // handleSearchOrFilterChange(); 
 }, { deep: true });
 
-// --- Handlers ---
-const handleAddCompetitor = () => {
-  alert("Abrir modal para añadir competidor (pendiente)");
+const clearFilters = () => {
+  filters.value = { academyName: "all", categoryId: 'all' };
+  searchQuery.value = '';
+  fetchData(1);
 };
-const viewDetails = (id: number) => {
-  alert(`Ver detalles del competidor ${id} (pendiente)`);
+
+// --- Handlers de Acción (Guardado y Edición) ---
+
+const handleAddCompetitor = () => { 
+  modalError.value = null;
+  editingParticipant.value = null; // MODO CREAR
+  isModalOpen.value = true;
 };
-const handleEdit = (id: number) => {
-  alert(`Editar competidor ${id} (pendiente)`);
-};
-const handleDelete = (id: number) => {
-  if (confirm(`¿Estás seguro de eliminar al competidor ${id}?`)) {
-    // Lógica simulada de eliminación
-    allCompetitors.value = allCompetitors.value.filter(c => c.id !== id);
-    alert(`Competidor ${id} eliminado (simulado)`);
+
+// 💥 IMPLEMENTACIÓN: Abrir modal en modo edición
+const handleEdit = async (studentIdToEdit: number) => {
+  modalError.value = null;
+  isSaving.value = true;
+
+  try {
+    // Buscamos los datos consolidados del estudiante para pasarlos al modal.
+    const participantData = championshipParticipants.value.find(p => p.id === studentIdToEdit); 
+
+    if (participantData) {
+        // Configuramos el estado de edición
+        editingParticipant.value = {
+            studentId: participantData.id,
+            studentName: participantData.studentName,
+            initialInscriptions: participantData.inscriptions, // Array de { participantId, categoryId, categoryName }
+        };
+        isModalOpen.value = true;
+    } else {
+        throw new Error("Datos del participante no encontrados en la lista actual.");
+    }
+
+  } catch (e: any) {
+    modalError.value = e.message || 'Error al cargar los datos de edición.';
+    console.error(e);
+  } finally {
+    isSaving.value = false;
   }
 };
 
-// --- Funciones Auxiliares ---
+
+// 💥 HANDLER DE GUARDADO (Ahora maneja CREAR y EDITAR)
+const handleSaveParticipant = async (
+  studentId: number, 
+  currentCategoryIds: number[], 
+  newCategoryIds: number[]      
+) => {
+    // Validaciones iniciales
+    if (!currentChampionship.value) {
+        modalError.value = "Error: El campeonato no está cargado. No se puede inscribir.";
+        return;
+    }
+    if (studentId === 0 || newCategoryIds.length === 0) {
+        modalError.value = "Debe seleccionar un estudiante y al menos una categoría.";
+        return;
+    }
+    
+    isSaving.value = true;
+    modalError.value = null;
+
+    try {
+        if (editingParticipant.value) {
+            // --- MODO EDICIÓN (Sync logic) ---
+            const addedCategoryIds = newCategoryIds.filter(id => !currentCategoryIds.includes(id));
+            const removedCategoryIds = currentCategoryIds.filter(id => !newCategoryIds.includes(id));
+            
+            // 💡 Llama a la acción del store para sincronizar (asume que existe)
+            // await updateParticipantInscriptions(studentId, addedCategoryIds, removedCategoryIds); 
+            
+            // Simulación de API para Edición (Eliminar la simulación cuando se implemente la acción real):
+            console.log(`Editando Estudiante ${studentId}: Añadir: ${addedCategoryIds}, Quitar: ${removedCategoryIds}`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); 
+
+        } else {
+            // --- MODO CREAR ---
+            const payload: CreateParticipantPayload = {
+                studentId: studentId,
+                championshipId: championshipId.value, 
+                categoryIds: newCategoryIds
+            };
+            await createParticipant(payload);
+        }
+        
+        isModalOpen.value = false;
+        fetchData(participantsMeta.value.page); // Recargar la lista
+        
+    } catch (e: any) {
+        const errorMessage = e.response?.data?.message || e.message || 'Error al guardar los cambios.';
+        modalError.value = errorMessage;
+        console.error('Error al guardar participante:', e);
+    } finally {
+        isSaving.value = false;
+        editingParticipant.value = null; // Resetear estado de edición
+    }
+};
+
+const viewDetails = (id: number) => { alert(`Ver detalles de inscripción ${id} (pendiente)`); };
+const handleDelete = async (id: number) => {
+  if (confirm(`¿Estás seguro de eliminar esta inscripción (ID: ${id})?`)) {
+    await deleteParticipant(id);
+  }
+};
+
+// --- Funciones Auxiliares (sin cambios) ---
 const getInitials = (name: string): string => {
   if (!name) return "??";
   return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();

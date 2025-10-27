@@ -7,9 +7,10 @@ import { ref } from "vue"
 import { championshipService } from "../services/championships.service"
 import { championshipCategoryService } from "../services/championships-categories.service" 
 import { participantService } from "../services/participants.service"
-import { studentService } from '@/modules/students/services/students.service'
+// 💥 CORRECCIÓN: Importación de servicio de estudiantes
+import { studentService } from '@/modules/students/services/students.service' 
 
-// --- 2. Importación de Tipos (Desde el index central) ---
+// --- 2. Importación de Tipos ---
 import type {
   Championship,
   ChampionshipResponse,
@@ -242,7 +243,6 @@ export const useChampionshipStore = defineStore("championships", () => {
     try {
       const response = await participantService.getPaginatedParticipants(params);
       
-      // Asignamos los datos individuales tal cual vienen del backend
       championshipParticipants.value = response.data; 
       
       Object.assign(participantsMeta.value, response.meta);
@@ -321,6 +321,7 @@ export const useChampionshipStore = defineStore("championships", () => {
   ) => {
       try {
         // 1. Llama al servicio para actualizar la única inscripción por Participant ID
+        // 💡 NOTA: participantService.updateParticipantInscription debe existir y usar el PATCH/PUT
         await participantService.updateParticipantInscription(participantId, {
             championshipCategoryId: newCategoryId
         });
@@ -355,7 +356,8 @@ export const useChampionshipStore = defineStore("championships", () => {
     createParticipant,
     deleteParticipant,
     
-    groupInscriptions, // Exportamos la función de agrupación para la vista de edición
+    // Exportamos la función de agrupación para la vista de edición
+    groupInscriptions,
     studentsResults,
     studentsLoading,
     searchStudents,

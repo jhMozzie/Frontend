@@ -87,11 +87,12 @@
 
         <template #actions="{ item }">
           <div class="flex justify-end gap-3 whitespace-nowrap">
+            <button @click="handleEdit(item.id)" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900" title="Editar Inscripciones">
+              <LucidePencil class="w-4 h-4" />
+            </button>
+            
             <button @click="viewDetails(item.id)" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800" title="Ver Detalles">
               <LucideEye class="w-4 h-4" />
-            </button>
-            <button @click="handleEdit(item.id)" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900" title="Editar">
-              <LucidePencil class="w-4 h-4" />
             </button>
             <button @click="handleDelete(item.id)" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800" title="Eliminar">
               <LucideTrash2 class="w-4 h-4" />
@@ -145,10 +146,15 @@
         :is-saving="isSaving"
         :error="modalError"
         @close="isModalOpen = false"
+        
         @save="handleSaveParticipant"
+        
         :initial-student-id="editingParticipant?.studentId"
         :initial-student-name="editingParticipant?.studentName"
         :initial-inscriptions="editingParticipant?.initialInscriptions"
+        
+        :editing-participant-id="editingParticipant?.participantId" 
+        
       />
     </Teleport>
   </div>
@@ -173,8 +179,8 @@ import ParticipantFormModal from '@/modules/championships/components/create/Part
 const route = useRoute();
 const championshipStore = useChampionshipStore();
 
-// 💡 Asume que el store tendrá estas acciones (necesarias para el paso 3)
-const { fetchParticipants, deleteParticipant, createParticipant, updateParticipantInscriptions } = championshipStore as any; 
+// 💥 CLAVE: Desestructuramos groupInscriptions y updateParticipantInscription
+const { fetchParticipants, deleteParticipant, createParticipant, updateParticipantInscription, groupInscriptions } = useChampionshipStore() as any; 
 
 const { 
   championshipParticipants, 
@@ -192,28 +198,20 @@ const isSaving = ref(false);
 const modalError = ref<string | null>(null); 
 
 // 💥 ESTADO DE EDICIÓN
-const editingParticipant = ref<{ studentId: number; studentName: string; initialInscriptions: Inscription[] } | null>(null);
+const editingParticipant = ref<{ participantId: number; studentId: number; studentName: string; initialInscriptions: Inscription[] } | null>(null);
 
-// --- Estado de Filtros y Paginación (sin cambios) ---
+// --- Computed Properties (sin cambios) ---
 const searchQuery = ref('');
 const itemsPerPage = ref(5);
 const filters = ref({ 
   academyName: "all",
   categoryId: 'all' as 'all' | number 
 });
-
-// --- Carga Inicial de Datos (sin cambios) ---
-onMounted(() => {
-  if (championshipId.value && !isNaN(championshipId.value)) {
-    fetchData(1);
-  }
-});
-
-// --- Computed Properties (sin cambios) ---
 const totalPages = computed(() => participantsMeta.value.totalPages);
 
 const uniqueClubs = computed(() => {
-    const clubs = championshipParticipants.value.map(p => p.academyName).filter(Boolean);
+    // 💡 El filtro debe iterar sobre el array de inscripciones individuales
+    const clubs = championshipParticipants.value.map((p: any) => p.academyName).filter(Boolean);
     return [...new Set(clubs as string[])].sort();
 });
 
@@ -228,15 +226,13 @@ const activeFilterCount = computed(() =>
     (filters.value.categoryId !== 'all' ? 1 : 0)
 );
 
-// --- Lógica de DataTable (sin cambios) ---
 const tableColumns = ref([
   { key: 'studentName', label: 'Nombre' }, 
   { key: 'categoryName', label: 'Categoría' }, 
   { key: 'beltName', label: 'Grado' }, 
   { key: 'academyName', label: 'Club' }, 
-])
+]);
 
-// --- Watchers y Handlers (Backend Paginado) (sin cambios) ---
 const fetchData = (page: number) => {
     const params: ParticipantListParams = {
         page: page,
@@ -245,6 +241,11 @@ const fetchData = (page: number) => {
         categoryId: filters.value.categoryId !== 'all' ? filters.value.categoryId : undefined,
     };
     fetchParticipants(params);
+    
+    // 💥 IMPRESIÓN PARA DIAGNÓSTICO
+    console.log("--- DEBUG TABLA DATOS ---");
+    console.log("Datos de la tabla (championshipParticipants):", championshipParticipants.value);
+    console.log("-------------------------");
 };
 
 const handleLimitChange = () => {
@@ -254,10 +255,6 @@ const handleLimitChange = () => {
 const changePage = (page: number) => {
     if (page < 1 || page > totalPages.value) return;
     fetchData(page);
-};
-
-const handleSearchOrFilterChange = () => {
-    fetchData(1);
 };
 
 watch([searchQuery, filters], () => {
@@ -270,7 +267,7 @@ const clearFilters = () => {
   fetchData(1);
 };
 
-// --- Handlers de Acción (Guardado y Edición) ---
+// --- Handlers de Acción (Creación/Edición/Añadir Individual) ---
 
 const handleAddCompetitor = () => { 
   modalError.value = null;
@@ -278,25 +275,36 @@ const handleAddCompetitor = () => {
   isModalOpen.value = true;
 };
 
-// 💥 IMPLEMENTACIÓN: Abrir modal en modo edición
-const handleEdit = async (studentIdToEdit: number) => {
+// 💥 IMPLEMENTACIÓN: handleEdit (Edición Granular por FILA)
+const handleEdit = async (participantIdToEdit: number) => {
   modalError.value = null;
   isSaving.value = true;
 
   try {
-    // Buscamos los datos consolidados del estudiante para pasarlos al modal.
-    const participantData = championshipParticipants.value.find(p => p.id === studentIdToEdit); 
+    // Buscamos el objeto de INSCRIPCIÓN individual de la tabla
+    const singleInscriptionData: any = championshipParticipants.value.find((p: any) => p.id === participantIdToEdit); 
 
-    if (participantData) {
+    if (singleInscriptionData) {
+        
+        // Construimos la única inscripción inicial para el modal.
+        const initialInscription: Inscription = {
+            participantId: singleInscriptionData.id,
+            categoryId: singleInscriptionData.championshipCategoryId,
+            categoryName: singleInscriptionData.categoryName, 
+        };
+
         // Configuramos el estado de edición
         editingParticipant.value = {
-            studentId: participantData.id,
-            studentName: participantData.studentName,
-            initialInscriptions: participantData.inscriptions, // Array de { participantId, categoryId, categoryName }
+            participantId: singleInscriptionData.id, // ID de la inscripción a editar
+            studentId: singleInscriptionData.studentId, 
+            studentName: singleInscriptionData.studentName,
+            
+            // CLAVE: Pasamos SÓLO la inscripción de esta fila en un array.
+            initialInscriptions: [initialInscription], 
         };
         isModalOpen.value = true;
     } else {
-        throw new Error("Datos del participante no encontrados en la lista actual.");
+        throw new Error("Datos de la inscripción no encontrados.");
     }
 
   } catch (e: any) {
@@ -308,7 +316,7 @@ const handleEdit = async (studentIdToEdit: number) => {
 };
 
 
-// 💥 HANDLER DE GUARDADO (Ahora maneja CREAR y EDITAR)
+// 💥 HANDLER DE GUARDADO (Maneja CREAR y EDICIÓN GRANULAR)
 const handleSaveParticipant = async (
   studentId: number, 
   currentCategoryIds: number[], 
@@ -329,29 +337,35 @@ const handleSaveParticipant = async (
 
     try {
         if (editingParticipant.value) {
-            // --- MODO EDICIÓN (Sync logic) ---
-            const addedCategoryIds = newCategoryIds.filter(id => !currentCategoryIds.includes(id));
-            const removedCategoryIds = currentCategoryIds.filter(id => !newCategoryIds.includes(id));
             
-            // 💡 Llama a la acción del store para sincronizar (asume que existe)
-            // await updateParticipantInscriptions(studentId, addedCategoryIds, removedCategoryIds); 
+            // --- MODO EDICIÓN GRANULAR (Corrección de una sola categoría) ---
             
-            // Simulación de API para Edición (Eliminar la simulación cuando se implemente la acción real):
-            console.log(`Editando Estudiante ${studentId}: Añadir: ${addedCategoryIds}, Quitar: ${removedCategoryIds}`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); 
+            // Requerimos que solo se seleccione una nueva categoría para la corrección
+            if (newCategoryIds.length !== 1) {
+                throw new Error("Error: En modo edición solo se puede seleccionar una categoría (la nueva corrección).");
+            }
+            
+            const participantId = editingParticipant.value.participantId;
+            const oldCategoryId = currentCategoryIds[0];
+            const newCategoryId = newCategoryIds[0];
+            
+            if (oldCategoryId !== newCategoryId) {
+                 // 💥 Llama a la acción de corrección unitaria (PATCH /participants/:id)
+                 await updateParticipantInscription(participantId, newCategoryId); 
+            }
 
         } else {
-            // --- MODO CREAR ---
+            // --- MODO CREAR (Múltiple) ---
             const payload: CreateParticipantPayload = {
                 studentId: studentId,
-                championshipId: championshipId.value, 
+                championshipId: currentChampionship.value!.id, 
                 categoryIds: newCategoryIds
             };
             await createParticipant(payload);
         }
         
         isModalOpen.value = false;
-        fetchData(participantsMeta.value.page); // Recargar la lista
+        fetchData(participantsMeta.value.page); 
         
     } catch (e: any) {
         const errorMessage = e.response?.data?.message || e.message || 'Error al guardar los cambios.';
@@ -359,7 +373,7 @@ const handleSaveParticipant = async (
         console.error('Error al guardar participante:', e);
     } finally {
         isSaving.value = false;
-        editingParticipant.value = null; // Resetear estado de edición
+        editingParticipant.value = null;
     }
 };
 
@@ -373,6 +387,10 @@ const handleDelete = async (id: number) => {
 // --- Funciones Auxiliares (sin cambios) ---
 const getInitials = (name: string): string => {
   if (!name) return "??";
-  return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 };
+
+onMounted(() => {
+  fetchData(1);
+});
 </script>

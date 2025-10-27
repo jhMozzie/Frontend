@@ -17,25 +17,17 @@
           <label for="student-search" class="block text-sm font-medium text-gray-700 mb-1">Estudiante</label>
           <div class="relative">
             <input
-                v-if="!selectedStudentName || isEditing"
                 id="student-search"
                 v-model="studentSearchQuery"
                 :disabled="isEditing"
                 type="text"
-                placeholder="Buscar por nombre..."
+                :placeholder="selectedStudentName || 'Buscar por nombre...'"
                 class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-red-500 disabled:bg-gray-100"
                 @focus="showStudentResults = true"
                 @blur="hideStudentResults"
             />
             
-            <input 
-              v-else 
-              :value="selectedStudentName" 
-              disabled 
-              class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-white text-gray-900 font-medium" 
-            />
-            
-            <LucideSearch v-if="!selectedStudentName || isEditing" class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <LucideSearch v-if="!isEditing" class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
 
             <ul v-if="showStudentResults && filteredStudents.length > 0 && !isEditing" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
               <li 
@@ -144,30 +136,42 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { LucideX, LucideLoader2, LucideSearch, LucideUsers } from 'lucide-vue-next'; // 💡 Asegúrate de tener LucideUsers importado si lo usas en el futuro
+import { LucideX, LucideLoader2, LucideSearch, LucideUsers } from 'lucide-vue-next';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import { storeToRefs } from 'pinia';
+import { debounce } from 'lodash'; 
 import type { Inscription } from '@/modules/championships/types/participants.types';
 import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
 
-// --- DEFINICIÓN DE PROPS y EMITS (sin cambios) ---
+// --- TIPOS ASUMIDOS PARA ESTUDIANTES ---
+type StudentSearchResult = { id: number, name: string };
+
+// --- DEFINICIÓN DE PROPS y EMITS ---
 const props = defineProps<{
   championshipId: number; 
   initialStudentId?: number; 
+  initialStudentName?: string; 
   initialInscriptions?: Inscription[]; 
   isSaving: boolean; 
   error: string | null; 
 }>();
 
 const emit = defineEmits<{
-  (e: 'close'): void; 
+  // 💥 FIRMA GENÉRICA PARA COINCIDIR CON LA VISTA
   (e: 'save', studentId: number, currentCategoryIds: number[], newCategoryIds: number[]): void;
+  (e: 'close'): void; 
 }>();
 
 // --- STORE ---
 const championshipStore = useChampionshipStore();
-const { championshipCategories: allCategories, categoriesLoading, categoriesError } = storeToRefs(championshipStore);
-const { fetchChampionshipCategories } = championshipStore;
+const { 
+  championshipCategories: allCategories, 
+  categoriesLoading, 
+  categoriesError,
+  studentsResults, 
+  studentsLoading 
+} = storeToRefs(championshipStore) as any;
+const { fetchChampionshipCategories, searchStudents } = championshipStore as any; 
 
 // --- ESTADO INTERNO DEL FORMULARIO ---
 const selectedStudentId = ref(0);
@@ -175,7 +179,6 @@ const selectedStudentName = ref('');
 const selectedCategoryIds = ref<number[]>([]); 
 const categoryFilter = ref<'all' | 'Kumite' | 'Kata'>('all');
 
-// Declaraciones de búsqueda de estudiante
 const studentSearchQuery = ref(''); 
 const showStudentResults = ref(false); 
 
@@ -187,12 +190,18 @@ const title = computed(() => isEditing.value ? 'Editar Inscripciones' : 'Inscrib
 // watch (Manejo de Edición/Reset)
 watch(() => props.initialStudentId, (newId) => {
   if (newId) {
-    // Modo Edición: Llenamos los datos 
+    // MODO EDICIÓN: Llenamos los datos 
     selectedStudentId.value = newId;
-    // La búsqueda se desactiva y el nombre se mostraría estático (si lo tuvieras)
+    
+    // 💡 CLAVE: Mapeamos las inscripciones iniciales (recibidas por props)
     selectedCategoryIds.value = props.initialInscriptions?.map(inv => inv.categoryId) || [];
+    
+    // Inicializamos el nombre del estudiante para que se muestre en el input
+    selectedStudentName.value = props.initialStudentName || '';
+    studentSearchQuery.value = props.initialStudentName || ''; 
+    
   } else {
-    // Modo Crear: Reseteamos
+    // MODO CREAR: Reseteamos
     selectedStudentId.value = 0;
     selectedStudentName.value = ''; 
     studentSearchQuery.value = ''; 
@@ -200,45 +209,56 @@ watch(() => props.initialStudentId, (newId) => {
   }
 }, { immediate: true });
 
-// --- LÓGICA DE CATEGORÍAS ---
+// 💥 NUEVO WATCHER: FUERZA LA SELECCIÓN UNITARIA EN MODO EDICIÓN
+watch(selectedCategoryIds, (newIds) => {
+    // Si estamos en modo edición Y solo hay una inscripción original, forzamos la unicidad.
+    const isEditingSingle = isEditing.value && props.initialInscriptions && props.initialInscriptions.length === 1;
 
-// Filtra las categorías disponibles según el botón Kata/Kumite/Todas (sin cambios)
+    if (isEditingSingle && newIds.length > 1) {
+        // En modo de corrección unitaria, solo mantenemos la última categoría seleccionada
+        const lastSelectedId = newIds[newIds.length - 1];
+        if (lastSelectedId !== undefined) {
+            selectedCategoryIds.value = [lastSelectedId];
+        }
+    }
+});
+
+
+// Lógica de categorías (filtrado y selección)
 const filteredCategories = computed(() => {
     if (categoryFilter.value === 'all') {
         return allCategories.value;
     }
-    return allCategories.value.filter(cat => cat.modality === categoryFilter.value);
+    return allCategories.value.filter((cat: ChampionshipCategoryListItem) => cat.modality === categoryFilter.value);
 });
 
-// 💥 NUEVA COMPUTED PROPERTY: Mapea los IDs seleccionados a objetos de categoría
+// 💥 MODIFICACIÓN VISUAL: Añadimos un campo "Nuevo" si hay cambio
 const selectedCategories = computed(() => {
-    // Filtra el array completo de categorías para obtener solo las seleccionadas
-    return allCategories.value.filter(cat => selectedCategoryIds.value.includes(cat.id));
+    const originalId = props.initialInscriptions?.[0]?.categoryId;
+    const currentId = selectedCategoryIds.value[0];
+
+    const mappedCats = allCategories.value.filter((cat: ChampionshipCategoryListItem) => selectedCategoryIds.value.includes(cat.id));
+    
+    // Si estamos en modo de corrección unitaria (Edición), y el ID cambió, añadimos 'NUEVA'
+    if (isEditing.value && currentId && originalId !== currentId) {
+         return mappedCats.map((cat: { code: string; }) => ({
+            ...cat,
+            code: cat.code + ' (NUEVA)'
+         }));
+    }
+    
+    return mappedCats;
 });
 
-// 💥 NUEVA FUNCIÓN: Para quitar una categoría desde la sección de seleccionadas
 const unselectCategory = (categoryId: number) => {
     selectedCategoryIds.value = selectedCategoryIds.value.filter(id => id !== categoryId);
 };
 
 
-// --- LÓGICA DE ESTUDIANTES (Simulación) ---
-
-const allStudentsMock = ref([
-    { id: 1, name: 'Juan Pérez' },
-    { id: 2, name: 'Carlos Ruiz' },
-    { id: 3, name: 'Miguel Sanz' },
-    { id: 4, name: 'Pedro López' },
-    { id: 7, name: 'Ana Sánchez' },
-    { id: 12, name: 'Carla Navarro' },
-]);
-
-const filteredStudents = computed(() => {
-    if (!studentSearchQuery.value) return allStudentsMock.value;
-    const query = studentSearchQuery.value.toLowerCase();
-    return allStudentsMock.value.filter(student => 
-        student.name.toLowerCase().includes(query)
-    );
+// --- LÓGICA DE ESTUDIANTES (BÚSQUEDA REAL DE API) ---
+const filteredStudents = computed<StudentSearchResult[]>(() => {
+    if (studentSearchQuery.value.length < 3 || studentsLoading.value) return [];
+    return studentsResults.value || [];
 });
 
 const selectStudent = (id: number, name: string) => {
@@ -248,14 +268,35 @@ const selectStudent = (id: number, name: string) => {
     showStudentResults.value = false;
 };
 
-// 💥 CORRECCIÓN VISUAL: Añadimos un pequeño retraso y comprobamos si el foco se perdió
+const searchStudentsDebounced = debounce(async (query: string) => {
+    if (query.length < 3) return;
+    await searchStudents(query); 
+    showStudentResults.value = true;
+}, 300);
+
+watch(studentSearchQuery, (newQuery) => {
+    if (!isEditing.value) {
+        searchStudentsDebounced(newQuery);
+        
+        if (newQuery === '' && selectedStudentId.value !== 0) {
+            selectedStudentId.value = 0;
+            selectedStudentName.value = '';
+            showStudentResults.value = false;
+        }
+    }
+});
+
+// Lógica de desenfoque
 const hideStudentResults = () => {
     setTimeout(() => {
-        // Solo oculta si no se ha seleccionado un elemento *y* si el campo de búsqueda no coincide con el nombre seleccionado
+        if(isEditing.value) {
+            showStudentResults.value = false;
+            return;
+        }
+        
         if(selectedStudentId.value !== 0 && studentSearchQuery.value === selectedStudentName.value) {
             showStudentResults.value = false;
         } else {
-            // Si el usuario escribió algo y luego hizo click fuera sin seleccionar, reseteamos la búsqueda
             if (selectedStudentId.value === 0) {
                  studentSearchQuery.value = '';
             }
@@ -272,20 +313,22 @@ onMounted(() => {
 });
 
 
-// --- HANDLERS (EMISIÓN DE EVENTOS) (sin cambios) ---
+// --- HANDLERS (EMISIÓN DE EVENTOS) ---
 const handleClose = () => {
   emit('close');
 };
 
 const handleSave = () => {
-  if (selectedStudentId.value === 0 || selectedCategoryIds.value.length === 0) {
+  const isCreation = !isEditing.value;
+  const currentCategoryIds = props.initialInscriptions?.map(inv => inv.categoryId) || [];
+  const newCategoryIds = selectedCategoryIds.value;
+
+  if (selectedStudentId.value === 0 || newCategoryIds.length === 0) {
     alert("Por favor, seleccione un estudiante y al menos una categoría.");
     return;
   }
   
-  const currentCategoryIds = props.initialInscriptions?.map(inv => inv.categoryId) || [];
-  const newCategoryIds = selectedCategoryIds.value;
-  
+  // Enviamos siempre la firma completa, dejando que la vista la interprete
   emit('save', selectedStudentId.value, currentCategoryIds, newCategoryIds);
 };
 

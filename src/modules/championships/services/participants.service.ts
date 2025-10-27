@@ -55,7 +55,7 @@ export const participantService = {
   async updateParticipantInscription(participantId: number, payload: UpdateParticipantPayload) {
     // Usamos PATCH que es la convención más común para actualizar un campo, 
     // pero funciona con PUT si el backend lo acepta.
-    const { data } = await api.patch(
+    const { data } = await api.put(
       `/participants/${participantId}`,
       payload
     );

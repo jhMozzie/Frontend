@@ -1,20 +1,21 @@
 <template>
-  <div> <div class="grid gap-4 md:grid-cols-4 mb-6">
+  <div> 
+    <div class="grid gap-4 md:grid-cols-4 mb-6">
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
         <p class="text-sm text-gray-500">Total Categorías</p>
-        <p class="text-2xl font-bold mt-1">8</p> 
+        <p class="text-2xl font-bold mt-1">{{ championshipCategories.length }}</p> 
       </div>
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
         <p class="text-sm text-gray-500">Categorías Filtradas</p>
          <p class="text-2xl font-bold mt-1">{{ filteredCategorias.length }}</p>
       </div>
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <p class="text-sm text-gray-500">Total Inscritos (Todas)</p>
-         <p class="text-2xl font-bold mt-1">89</p>
+        <p class="text-sm text-gray-500">Total Inscritos (Filtrados)</p>
+         <p class="text-2xl font-bold mt-1">{{ totalFilteredParticipants }}</p> 
       </div>
       <div class="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <p class="text-sm text-gray-500">Promedio Inscritos (Todas)</p>
-         <p class="text-2xl font-bold mt-1">11</p>
+        <p class="text-sm text-gray-500">Promedio Inscritos (Filtrados)</p>
+         <p class="text-2xl font-bold mt-1">{{ averageParticipantsPerFilteredCategory }}</p> 
       </div>
     </div>
 
@@ -24,6 +25,7 @@
            <LucideSearch class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
            <input v-model="searchTerm" @input="currentPage = 1" type="text" placeholder="Buscar por nombre, código, tipo..." class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-0"/>
         </div>
+        
         <div class="relative w-full sm:w-auto">
             <button @click="toggleFilterPopover" :class="[
                 'inline-flex w-full sm:w-auto items-center justify-center gap-2 whitespace-nowrap rounded-md border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -44,6 +46,23 @@
       </div>
     </div>
 
+    <div class="flex items-center justify-start gap-4 mb-6">
+       <button 
+           @click="handleGenerateBrackets"
+           class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none bg-red-600 text-white hover:bg-red-700"
+       >
+           <LucideUsers class="h-4 w-4" />
+           Generar Brackets
+       </button>
+       <button 
+           @click="handleExportBracketsPdf"
+           class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+       >
+           <LucideX class="h-4 w-4" />
+           Generar PDF de Brackets
+       </button>
+    </div>
+    
     <div class="mb-6">
       <div v-if="loading" class="text-center py-12 text-gray-500">
         <LucideLoader2 class="h-10 w-10 mx-auto mb-3 text-gray-400 animate-spin" />
@@ -123,10 +142,12 @@ const championshipStore = useChampionshipStore();
 const { 
   championshipCategories, // Esta es la lista COMPLETA de categorías
   categoriesMeta, // Los meta-datos (incluyendo 'total' real)
-  loading, // Estado de carga del store (antes categoriesLoading)
-  error     // Estado de error del store (antes categoriesError)
+  categoriesLoading: loading, // Estado de carga del store (antes categoriesLoading)
+  categoriesError: error     // Estado de error del store (antes categoriesError)
 } = storeToRefs(championshipStore);
-const { fetchChampionshipCategories } = championshipStore;
+
+// 💥 NUEVAS ACCIONES DESESTRUCTURADAS
+const { fetchChampionshipCategories, generateBrackets, exportBracketsPdf } = championshipStore as any; 
 
 const championshipId = computed(() => Number(route.params.id));
 
@@ -182,11 +203,8 @@ const startIndex = computed<number>(() => (currentPage.value - 1) * itemsPerPage
 const endIndex = computed<number>(() => startIndex.value + itemsPerPage.value);
 const paginatedCategorias = computed<ChampionshipCategoryListItem[]>(() => filteredCategorias.value.slice(startIndex.value, endIndex.value));
 
-// 4. Estadísticas (Total Inscritos y Promedio ahora son hardcodeados)
-const totalInscritos = ref(89); // 💡 Hardcodeado
-const promedioInscritos = ref(11); // 💡 Hardcodeado
+// 4. Estadísticas (CORREGIDO: Usaremos los valores computados)
 
-// 💡 (Calculamos estos solo para el template, pero no los usamos en los stats)
 const totalFilteredParticipants = computed<number>(() => filteredCategorias.value.reduce((sum, cat) => sum + cat.participantCount, 0));
 const averageParticipantsPerFilteredCategory = computed<number | string>(() => {
     if (filteredCategorias.value.length === 0) return 0;
@@ -231,6 +249,23 @@ const handleClickOutside = (event: MouseEvent) => {
 };
 onMounted(() => { document.addEventListener('click', handleClickOutside); });
 onBeforeUnmount(() => { document.removeEventListener('click', handleClickOutside); });
+
+// --- Handlers de Brackets ---
+const handleGenerateBrackets = () => {
+    if (championshipId.value) {
+        // Llama a la acción del store para generar brackets
+        // 💡 NOTA: generateBrackets debe estar desestructurado del store
+        (championshipStore as any).generateBrackets(championshipId.value);
+    }
+};
+
+const handleExportBracketsPdf = () => {
+    if (championshipId.value) {
+        // Llama a la acción del store para exportar PDF
+        // 💡 NOTA: exportBracketsPdf debe estar desestructurado del store
+        (championshipStore as any).exportBracketsPdf(championshipId.value);
+    }
+};
 
 // --- Funciones Auxiliares (sin cambios) ---
 function generateCategoryName(cat: ChampionshipCategoryListItem): string {

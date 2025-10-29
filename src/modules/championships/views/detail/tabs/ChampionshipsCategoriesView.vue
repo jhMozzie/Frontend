@@ -25,7 +25,6 @@
            <LucideSearch class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
            <input v-model="searchTerm" @input="currentPage = 1" type="text" placeholder="Buscar por nombre, código, tipo..." class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-0"/>
         </div>
-        
         <div class="relative w-full sm:w-auto">
             <button @click="toggleFilterPopover" :class="[
                 'inline-flex w-full sm:w-auto items-center justify-center gap-2 whitespace-nowrap rounded-md border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
@@ -58,7 +57,7 @@
            @click="handleExportBracketsPdf"
            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
        >
-           <LucideX class="h-4 w-4" />
+           <LucideFileText class="h-4 w-4" />
            Generar PDF de Brackets
        </button>
     </div>
@@ -131,22 +130,22 @@ import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
-import { LucideSearch, LucideFilter, LucideX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LucideUsers, LucideInbox, LucideLoader2, LucideAlertTriangle } from 'lucide-vue-next';
+// 💥 Importar todos los iconos
+import { LucideSearch, LucideFilter, LucideX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LucideUsers, LucideInbox, LucideLoader2, LucideAlertTriangle, LucideFileText } from 'lucide-vue-next';
 
 // --- Store y Estado ---
 const route = useRoute();
 const router = useRouter();
 const championshipStore = useChampionshipStore();
 
-// 👇 Usamos los estados de carga/error específicos de categorías
 const { 
-  championshipCategories, // Esta es la lista COMPLETA de categorías
-  categoriesMeta, // Los meta-datos (incluyendo 'total' real)
-  categoriesLoading: loading, // Estado de carga del store (antes categoriesLoading)
-  categoriesError: error     // Estado de error del store (antes categoriesError)
+  championshipCategories, 
+  categoriesMeta, 
+  categoriesLoading: loading, 
+  categoriesError: error     
 } = storeToRefs(championshipStore);
 
-// 💥 NUEVAS ACCIONES DESESTRUCTURADAS
+// 💥 CORRECCIÓN: Desestructuramos las acciones del store
 const { fetchChampionshipCategories, generateBrackets, exportBracketsPdf } = championshipStore as any; 
 
 const championshipId = computed(() => Number(route.params.id));
@@ -154,7 +153,7 @@ const championshipId = computed(() => Number(route.params.id));
 // --- Estado de Filtros y Paginación ---
 const searchTerm = ref('');
 const currentPage = ref(1);
-const itemsPerPage = ref(6); // 💡 Paginación de 6 por defecto
+const itemsPerPage = ref(6); 
 const filters = ref({
   modality: "all",
   ageRangeLabel: "all",
@@ -166,23 +165,19 @@ const filterPopoverRef = ref<HTMLElement | null>(null);
 // --- Carga Inicial de Datos ---
 onMounted(() => {
   if (championshipId.value && !isNaN(championshipId.value)) {
-    // 💡 Cargamos TODAS las categorías (limit 999) 
-    //    para que el filtro/paginación frontend funcione.
     fetchChampionshipCategories(championshipId.value, 1, 999); 
   } else {
-    // Usamos el 'error' local (que es 'categoriesError' del store)
-    error.value = "ID de campeonato inválido en la ruta.";
+    console.error("ID de campeonato inválido en la ruta.");
   }
 });
 
 // --- Computed Properties ---
 
-// 1. Filtramos sobre 'championshipCategories' (la lista completa)
 const filteredCategorias = computed<ChampionshipCategoryListItem[]>(() => {
   if (!Array.isArray(championshipCategories.value)) {
     return [];
   }
-  return championshipCategories.value.filter(cat => {
+  return championshipCategories.value.filter((cat: ChampionshipCategoryListItem) => {
     const lowerSearch = searchTerm.value.toLowerCase();
     const descriptiveName = generateCategoryName(cat).toLowerCase();
     const matchesSearch = descriptiveName.includes(lowerSearch) || (cat.code && cat.code.toLowerCase().includes(lowerSearch));
@@ -193,18 +188,15 @@ const filteredCategorias = computed<ChampionshipCategoryListItem[]>(() => {
   });
 });
 
-// 2. Opciones únicas para los selects (basadas en la lista completa)
-const uniqueAgeRanges = computed(() => [...new Set(championshipCategories.value.map(c => c.ageRangeLabel).filter(Boolean))].sort());
-const uniqueBeltNames = computed(() => [...new Set(championshipCategories.value.map(c => c.beltMinName).filter(Boolean))].sort());
+const uniqueAgeRanges = computed(() => [...new Set(championshipCategories.value.map((c: any) => c.ageRangeLabel).filter(Boolean))].sort());
+const uniqueBeltNames = computed(() => [...new Set(championshipCategories.value.map((c: any) => c.beltMinName).filter(Boolean))].sort());
 
-// 3. Paginación (calculada sobre los datos YA filtrados)
 const totalPages = computed<number>(() => Math.max(1, Math.ceil(filteredCategorias.value.length / itemsPerPage.value)));
 const startIndex = computed<number>(() => (currentPage.value - 1) * itemsPerPage.value);
 const endIndex = computed<number>(() => startIndex.value + itemsPerPage.value);
 const paginatedCategorias = computed<ChampionshipCategoryListItem[]>(() => filteredCategorias.value.slice(startIndex.value, endIndex.value));
 
 // 4. Estadísticas (CORREGIDO: Usaremos los valores computados)
-
 const totalFilteredParticipants = computed<number>(() => filteredCategorias.value.reduce((sum, cat) => sum + cat.participantCount, 0));
 const averageParticipantsPerFilteredCategory = computed<number | string>(() => {
     if (filteredCategorias.value.length === 0) return 0;
@@ -251,19 +243,25 @@ onMounted(() => { document.addEventListener('click', handleClickOutside); });
 onBeforeUnmount(() => { document.removeEventListener('click', handleClickOutside); });
 
 // --- Handlers de Brackets ---
-const handleGenerateBrackets = () => {
+const handleGenerateBrackets = async () => {
     if (championshipId.value) {
-        // Llama a la acción del store para generar brackets
-        // 💡 NOTA: generateBrackets debe estar desestructurado del store
-        (championshipStore as any).generateBrackets(championshipId.value);
+        try {
+            // 1. Llamar a la acción (que ahora devuelve el mensaje)
+            const response: any = await generateBrackets(championshipId.value);
+            
+            // 2. 💥 Mostrar el "Toast" de éxito
+            alert(response.message || "Brackets generados exitosamente.");
+            
+        } catch (e: any) {
+            // 3. 💥 Mostrar el "Toast" de error
+            alert("Error al generar brackets: " + (e.message || "Error desconocido"));
+        }
     }
 };
 
 const handleExportBracketsPdf = () => {
     if (championshipId.value) {
-        // Llama a la acción del store para exportar PDF
-        // 💡 NOTA: exportBracketsPdf debe estar desestructurado del store
-        (championshipStore as any).exportBracketsPdf(championshipId.value);
+        exportBracketsPdf(championshipId.value);
     }
 };
 

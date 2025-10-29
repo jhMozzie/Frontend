@@ -7,10 +7,10 @@ import { ref } from "vue"
 import { championshipService } from "../services/championships.service"
 import { championshipCategoryService } from "../services/championships-categories.service" 
 import { participantService } from "../services/participants.service"
-// 💥 CORRECCIÓN: Importación de servicio de estudiantes
-import { studentService } from '@/modules/students/services/students.service' 
+import { studentService } from '@/modules/students/services/students.service'
+import { matchService } from "../services/matches.service" // Asumiendo 'match.service.ts'
 
-// --- 2. Importación de Tipos ---
+// --- 2. Importación de Tipos (Desde el index central) ---
 import type {
   Championship,
   ChampionshipResponse,
@@ -24,7 +24,8 @@ import type {
   PaginatedParticipantsResponse,
   CreateParticipantPayload,
   ParticipantListParams,
-  Inscription
+  Inscription,
+  Match
 } from "../types"; 
 
 // TIPOS ASUMIDOS
@@ -95,6 +96,10 @@ export const useChampionshipStore = defineStore("championships", () => {
   const studentsResults = ref<StudentSearchResult[]>([]);
   const studentsLoading = ref(false);
 
+  // 💥 NUEVO ESTADO PARA BRACKETS/MATCHES
+  const matches = ref<Match[]>([]);
+  const matchesLoading = ref(false);
+  const matchesError = ref<string | null>(null);
 
   // ===================================================================
   // === ACCIONES: CAMPEONATO (ACTIONS: CHAMPIONSHIP)
@@ -227,24 +232,19 @@ export const useChampionshipStore = defineStore("championships", () => {
     } catch (err: any) {
         console.error("Error en deleteCategory (store):", err);
         throw err;
-     }
+    }
   }
 
   // ===================================================================
   // === ACCIONES: PARTICIPANTES
   // ===================================================================
 
-  /**
-   * Carga los participantes (inscripciones individuales).
-   */
   const fetchParticipants = async (params: ParticipantListParams) => {
     participantsLoading.value = true;
     participantsError.value = null;
     try {
       const response = await participantService.getPaginatedParticipants(params);
-      
       championshipParticipants.value = response.data; 
-      
       Object.assign(participantsMeta.value, response.meta);
     } catch (err: any) {
       participantsError.value = err.message || "Error al obtener participantes";
@@ -254,14 +254,10 @@ export const useChampionshipStore = defineStore("championships", () => {
     }
   }
 
-  /**
-   * Crea (inscribe) un nuevo participante y recarga la lista
-   */
   const createParticipant = async (payload: CreateParticipantPayload) => {
     if (!currentChampionship.value) throw new Error("Campeonato no seleccionado.");
     try {
       await participantService.createParticipant(payload);
-      // Recargamos la página actual
       await fetchParticipants({
         championshipId: currentChampionship.value.id,
         page: participantsMeta.value.page,
@@ -273,14 +269,10 @@ export const useChampionshipStore = defineStore("championships", () => {
     }
   }
 
-  /**
-   * Elimina una inscripción y recarga la lista
-   */
   const deleteParticipant = async (participantId: number) => {
     if (!currentChampionship.value) throw new Error("Campeonato no seleccionado.");
     try {
       await participantService.deleteParticipant(participantId);
-      // Recargamos
       await fetchParticipants({
         championshipId: currentChampionship.value.id,
         page: participantsMeta.value.page,
@@ -292,7 +284,6 @@ export const useChampionshipStore = defineStore("championships", () => {
     }
   }
   
-  // 💥 ACCIÓN PARA BÚSQUEDA DE ESTUDIANTES
   const searchStudents = async (query: string) => {
     studentsLoading.value = true;
     studentsResults.value = []; 
@@ -314,19 +305,15 @@ export const useChampionshipStore = defineStore("championships", () => {
     }
   }
 
-  // 💥 ACCIÓN DE EDICIÓN GRANULAR (CORRECCIÓN)
   const updateParticipantInscription = async (
     participantId: number, 
     newCategoryId: number
   ) => {
       try {
-        // 1. Llama al servicio para actualizar la única inscripción por Participant ID
-        // 💡 NOTA: participantService.updateParticipantInscription debe existir y usar el PATCH/PUT
         await participantService.updateParticipantInscription(participantId, {
             championshipCategoryId: newCategoryId
         });
 
-        // 2. Recargamos la lista para ver los cambios
         await fetchParticipants({
           championshipId: currentChampionship.value!.id,
           page: participantsMeta.value.page,
@@ -337,6 +324,38 @@ export const useChampionshipStore = defineStore("championships", () => {
           console.error("Error al actualizar la inscripción:", err);
           throw err;
       }
+  }
+
+  // ===================================================================
+  // === ACCIONES: BRACKETS (MATCHES)
+  // ===================================================================
+
+  const fetchMatches = async (categoryId: number) => {
+    matchesLoading.value = true;
+    matchesError.value = null;
+    try {
+      matches.value = await matchService.getBracketsByCategory(categoryId);
+    } catch (err: any) {
+      matchesError.value = err.message || "Error al cargar los brackets.";
+      matches.value = [];
+    } finally {
+      matchesLoading.value = false;
+    }
+  }
+
+  const generateBrackets = async (championshipId: number) => {
+    try {
+      // 💥 CORRECCIÓN: Retorna la respuesta del servicio (que contiene el mensaje)
+      return await matchService.generateBrackets(championshipId);
+    } catch (err: any) {
+      console.error("Error al generar brackets:", err);
+      // 💥 CORRECCIÓN: Lanza el error para que la vista lo atrape
+      throw err;
+    }
+  }
+  
+  const exportBracketsPdf = async (championshipId: number) => {
+      alert(`Simulando exportación de PDF para Campeonato ID: ${championshipId}`);
   }
 
 
@@ -356,11 +375,17 @@ export const useChampionshipStore = defineStore("championships", () => {
     createParticipant,
     deleteParticipant,
     
-    // Exportamos la función de agrupación para la vista de edición
     groupInscriptions,
     studentsResults,
     studentsLoading,
     searchStudents,
     updateParticipantInscription,
+    
+    matches,
+    matchesLoading,
+    matchesError,
+    fetchMatches,
+    generateBrackets,
+    exportBracketsPdf,
   }
 })

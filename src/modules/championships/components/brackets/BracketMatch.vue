@@ -53,38 +53,42 @@ const props = defineProps({
 
 const emit = defineEmits(['openMatch']);
 
-// --- 💥 FUNCIONES DE ESTILO MOVIDAS AL COMPONENTE HIJO ---
+// --- FUNCIONES DE ESTILO ---
 
 const getStatusLabel = (status: string): string => {
-    const labels: { [key: string]: string } = { Pendiente: "Pendiente", Completado: "Finalizado", BYE: "" };
-    return labels[status] || status;
+  const labels: { [key: string]: string } = { 
+    Pendiente: "Pendiente", 
+    Completado: "Finalizado", 
+    BYE: "" 
+  };
+  return labels[status] || status;
 };
 
 const getStatusBadgeClasses = (status: string): string => {
-    const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold";
-    const variants: { [key: string]: string } = {
-        Pendiente: "bg-gray-100 text-gray-600",
-        Completado: "bg-green-100 text-green-700",
-        BYE: "hidden"
-    };
-    return `${base} ${variants[status] || variants.Pendiente}`;
+  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold";
+  const variants: { [key: string]: string } = {
+    Pendiente: "bg-gray-100 text-gray-600",
+    Completado: "bg-green-100 text-green-700",
+    BYE: "hidden"
+  };
+  return `${base} ${variants[status] || variants.Pendiente}`;
 };
 
 const getCompetitorClasses = (match: MatchTransformed, competitor: Competitor | undefined): string => {
-    const base = "flex items-center justify-between p-2 rounded";
-    
-    // Si el competidor es el ganador
-    if (competitor && match.winner === competitor.id) {
-        return `${base} bg-green-50 border-l-4 border-green-500`;
-    }
-    // Si el combate terminó y el competidor no es el ganador
-    if (match.status === 'Completado' && competitor && match.winner !== competitor.id) {
-        return `${base} bg-red-50 opacity-70`;
-    }
-    // Si es un slot vacío (Pendiente/BYE)
-    if (!competitor) {
-         return `${base} bg-gray-100`;
-    }
-    return `${base} bg-white`; 
+  const base = "flex items-center justify-between p-2 rounded";
+  
+  // Si el competidor es el ganador
+  if (competitor && match.winner === competitor.id) {
+    return `${base} bg-green-50 border-l-4 border-green-500`;
+  }
+  // Si el combate terminó y el competidor no es el ganador
+  if (match.status === 'Completado' && competitor && match.winner !== competitor.id) {
+    return `${base} bg-red-50 opacity-70`;
+  }
+  // Si es un slot vacío (Pendiente/BYE)
+  if (!competitor) {
+    return `${base} bg-gray-100`;
+  }
+  return `${base} bg-white`; 
 };
 </script>

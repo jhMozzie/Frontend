@@ -5,7 +5,7 @@
       class="relative ml-[50px] flex items-center"
     >
       <div 
-        v-if="!isRoot" 
+        v-if="!isRoot && hasChildren" 
         class="absolute w-[25px] h-0.5 left-0 top-1/2 bg-gray-300 -translate-x-full"
       ></div>
 
@@ -21,7 +21,6 @@
         <div 
           class="absolute w-0.5 bg-gray-300 right-[-25px] top-1/2 h-[calc(50%+22px)]"
           :class="{ 
-             // 💡 El hijo Akka (superior) NUNCA es 'last-child' en la iteración recursiva
              'translate-y-0': true 
           }"
         ></div>
@@ -80,8 +79,7 @@ interface MatchTransformed {
 const props = defineProps({
   match: { type: Object as PropType<MatchTransformed>, required: true },
   allMatches: { type: Array as PropType<MatchTransformed[]>, required: true },
-  isRoot: { type: Boolean, default: true }, 
-  // ❌ Eliminamos isLastChild de props porque no se usa en este componente
+  isRoot: { type: Boolean, default: true },
 });
 
 defineEmits(['openMatch']);
@@ -93,5 +91,10 @@ const childAkka = computed(() => {
 
 const childAo = computed(() => {
   return props.allMatches.find(m => m.nextMatchId === props.match.id && m.nextMatchSide === 'Ao');
+});
+
+// Verificar si este nodo tiene hijos (no es una hoja)
+const hasChildren = computed(() => {
+  return childAkka.value || childAo.value;
 });
 </script>

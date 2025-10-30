@@ -20,19 +20,19 @@
       <div class="overflow-x-auto">
         <div class="p-6">
           
-          <!-- Encabezados hardcodeados -->
+          <!-- Encabezados dinámicos según profundidad del bracket -->
           <div class="flex gap-8 mb-6">
-            <div class="flex-shrink-0" style="width: 314px;">
+            <div v-if="bracketDepth >= 4" class="flex-shrink-0" style="width: 314px;">
               <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
                 Octavos de Final
               </div>
             </div>
-            <div class="flex-shrink-0" style="width: 314px;">
+            <div v-if="bracketDepth >= 3" class="flex-shrink-0" style="width: 314px;">
               <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
                 Cuartos de Final
               </div>
             </div>
-            <div class="flex-shrink-0" style="width: 314px;">
+            <div v-if="bracketDepth >= 2" class="flex-shrink-0" style="width: 314px;">
               <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
                 Semifinal
               </div>
@@ -48,7 +48,7 @@
           <div v-if="finalMatch" class="flex justify-start">
             <BracketNode 
               :match="finalMatch" 
-              :all-matches="transformedMatches"
+              :all-matches="allMatches"
               @open-match="handleOpenMatch"
               :is-root="true"
             />
@@ -62,14 +62,14 @@
     <div v-if="showDialog" class="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
       <div class="bg-white rounded-lg shadow-xl w-full max-w-md" ref="dialogContentRef">
         <div class="border-b border-gray-200 px-6 py-4">
-          <h3 class="text-lg font-semibold text-gray-900">Registrar Resultado - Match #{{ selectedMatch?.id }}</h3>
+          <h3 class="text-lg font-semibold text-gray-900">Registrar Resultado - Match #{{ selectedMatch?.matchNumber }}</h3>
         </div>
         <div class="space-y-6 p-6">
           <div class="space-y-1">
             <div class="font-medium">{{ selectedMatch?.competitor1?.name || "Pendiente" }}</div>
             <div v-if="selectedMatch?.competitor1?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor1.academy }}</div>
             <div class="flex items-center gap-3 pt-1">
-              <button @click="adjustScore('tempScore1', -1)" :disabled="tempScore1 <= 0" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
+              <button @click="adjustScore('tempScore1', -1)" :disabled="tempScore1 <= 0" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
                 <LucideMinus class="w-4 h-4" />
               </button>
               <div class="text-3xl font-bold w-16 text-center tabular-nums">{{ tempScore1 }}</div>
@@ -83,7 +83,7 @@
             <div class="font-medium">{{ selectedMatch?.competitor2?.name || "Pendiente" }}</div>
             <div v-if="selectedMatch?.competitor2?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor2.academy }}</div>
             <div class="flex items-center gap-3 pt-1">
-              <button @click="adjustScore('tempScore2', -1)" :disabled="tempScore2 <= 0" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
+              <button @click="adjustScore('tempScore2', -1)" :disabled="tempScore2 <= 0" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
                 <LucideMinus class="w-4 h-4" />
               </button>
               <div class="text-3xl font-bold w-16 text-center tabular-nums">{{ tempScore2 }}</div>
@@ -136,31 +136,157 @@ interface MatchTransformed {
   nextMatchSide: string | null;
 }
 
-// --- Datos hardcodeados ---
-const hardcodedMatches: MatchTransformed[] = [
-  // Ronda 1 - Octavos de final
-  { id: 1, matchNumber: 1, competitor1: { id: 1, name: "Juan Pérez", academy: "Academia Dragón Rojo" }, competitor2: { id: 2, name: "Carlos Ruiz", academy: "Dojo Shotokan" }, winner: 1, score1: 8, score2: 5, status: "Completado", nextMatchId: 9, nextMatchSide: "Akka" },
-  { id: 2, matchNumber: 2, competitor1: { id: 3, name: "Miguel Sanz", academy: "Club Tradicional" }, competitor2: { id: 4, name: "Pedro López", academy: "Escuela Marcial" }, winner: 3, score1: 7, score2: 4, status: "Completado", nextMatchId: 9, nextMatchSide: "Ao" },
-  { id: 3, matchNumber: 3, competitor1: { id: 5, name: "Luis García", academy: "Centro Karate" }, competitor2: { id: 6, name: "Javier Martín", academy: "Dojo Central" }, winner: 5, score1: 6, score2: 3, status: "Completado", nextMatchId: 10, nextMatchSide: "Akka" },
-  { id: 4, matchNumber: 4, competitor1: { id: 7, name: "David Torres", academy: "Academia Norte" }, competitor2: { id: 8, name: "Sergio Ramos", academy: "Club Este" }, winner: 7, score1: 9, score2: 2, status: "Completado", nextMatchId: 10, nextMatchSide: "Ao" },
-  { id: 5, matchNumber: 5, competitor1: { id: 9, name: "Alejandro Díaz", academy: "Escuela Oeste" }, competitor2: { id: 10, name: "Roberto Silva", academy: "Dojo Sur" }, winner: 9, score1: 5, score2: 4, status: "Completado", nextMatchId: 11, nextMatchSide: "Akka" },
-  { id: 6, matchNumber: 6, competitor1: { id: 11, name: "Fernando Cruz", academy: "Centro Tradicional" }, competitor2: { id: 12, name: "Ricardo Mora", academy: "Academia Elite" }, winner: 11, score1: 7, score2: 6, status: "Completado", nextMatchId: 11, nextMatchSide: "Ao" },
-  { id: 7, matchNumber: 7, competitor1: { id: 13, name: "Gabriel Reyes", academy: "Club Karate" }, competitor2: { id: 14, name: "Esteban López", academy: "Dojo Samurai" }, winner: 13, score1: 8, score2: 7, status: "Completado", nextMatchId: 12, nextMatchSide: "Akka" },
-  { id: 8, matchNumber: 8, competitor1: { id: 15, name: "Daniel Castro", academy: "Escuela Shoto" }, competitor2: { id: 16, name: "Andrés Mendoza", academy: "Academia Bushido" }, winner: 15, score1: 6, score2: 5, status: "Completado", nextMatchId: 12, nextMatchSide: "Ao" },
+// ⭐ FUNCIÓN PARA CALCULAR LA PROFUNDIDAD NECESARIA DEL BRACKET ⭐
+function calculateBracketDepth(matches: MatchTransformed[]): number {
+  const finalMatch = matches.find(m => m.nextMatchId === null);
+  if (!finalMatch) return 1;
+  
+  function getMaxDepth(matchId: number, currentDepth: number = 1): number {
+    const children = matches.filter(m => m.nextMatchId === matchId && m.id > 0); // Solo matches reales
+    
+    if (children.length === 0) {
+      return currentDepth;
+    }
+    
+    const childDepths = children.map(child => getMaxDepth(child.id, currentDepth + 1));
+    return Math.max(...childDepths);
+  }
+  
+  return getMaxDepth(finalMatch.id);
+}
+
+// ⭐ FUNCIÓN MEJORADA PARA GENERAR BRACKET COMPLETO CON BYE MATCHES ⭐
+function generateCompleteBracket(realMatches: MatchTransformed[]): MatchTransformed[] {
+  const allMatches: MatchTransformed[] = [...realMatches];
+  let byeIdCounter = -1;
+  
+  // Calcular profundidad necesaria basada en matches reales
+  const maxDepth = calculateBracketDepth(realMatches);
+  
+  // Encontrar el match final (sin nextMatchId)
+  const finalMatch = realMatches.find(m => m.nextMatchId === null);
+  if (!finalMatch) return allMatches;
+  
+  // Función recursiva para completar el árbol
+  function ensureChildren(parentMatch: MatchTransformed, depth: number = 0): void {
+    const children = allMatches.filter(m => m.nextMatchId === parentMatch.id);
+    
+    // Solo generar hijos hasta la profundidad máxima real
+    if (children.length === 0 && depth < maxDepth) {
+      // Crear dos hijos fantasma
+      const childAkka: MatchTransformed = {
+        id: byeIdCounter--,
+        matchNumber: 0,
+        status: "BYE",
+        score1: null,
+        score2: null,
+        nextMatchId: parentMatch.id,
+        nextMatchSide: "Akka"
+      };
+      
+      const childAo: MatchTransformed = {
+        id: byeIdCounter--,
+        matchNumber: 0,
+        status: "BYE",
+        score1: null,
+        score2: null,
+        nextMatchId: parentMatch.id,
+        nextMatchSide: "Ao"
+      };
+      
+      allMatches.push(childAkka, childAo);
+      
+      // Recursivamente completar sus hijos
+      ensureChildren(childAkka, depth + 1);
+      ensureChildren(childAo, depth + 1);
+      
+    } else if (children.length === 1) {
+      // Si solo hay un hijo, crear el que falta
+      const existingChild = children[0]!;
+      const missingSide = existingChild.nextMatchSide === 'Akka' ? 'Ao' : 'Akka';
+      
+      const missingChild: MatchTransformed = {
+        id: byeIdCounter--,
+        matchNumber: 0,
+        status: "BYE",
+        score1: null,
+        score2: null,
+        nextMatchId: parentMatch.id,
+        nextMatchSide: missingSide
+      };
+      
+      allMatches.push(missingChild);
+      
+      // Recursivamente completar los hijos
+      ensureChildren(existingChild, depth + 1);
+      ensureChildren(missingChild, depth + 1);
+      
+    } else if (children.length === 2) {
+      // Ya tiene los dos hijos, seguir con la recursión
+      children.forEach(child => ensureChildren(child, depth + 1));
+    }
+  }
+  
+  // Iniciar desde el match final
+  ensureChildren(finalMatch);
+  
+  return allMatches;
+}
+
+// --- Datos de ejemplo - Caso con 5 competidores (Play-In) ---
+const realMatches: MatchTransformed[] = [
+  // Ronda 1 - Octavos de final (SOLO 1 PELEA REAL - Play In)
+  { 
+    id: 1, 
+    matchNumber: 1, 
+    competitor1: { id: 1, name: "Juan Pérez", academy: "Academia X" }, 
+    competitor2: { id: 2, name: "Carlos Ruiz", academy: "Academia X" }, 
+    winner: 1, 
+    score1: 8, 
+    score2: 5, 
+    status: "Completado", 
+    nextMatchId: 5, 
+    nextMatchSide: "Akka" 
+  },
   
   // Ronda 2 - Cuartos de final
-  { id: 9, matchNumber: 9, competitor1: { id: 1, name: "Juan Pérez", academy: "Academia Dragón Rojo" }, competitor2: { id: 3, name: "Miguel Sanz", academy: "Club Tradicional" }, winner: 1, score1: 5, score2: 3, status: "Completado", nextMatchId: 13, nextMatchSide: "Akka" },
-  { id: 10, matchNumber: 10, competitor1: { id: 5, name: "Luis García", academy: "Centro Karate" }, competitor2: { id: 7, name: "David Torres", academy: "Academia Norte" }, winner: 5, score1: 4, score2: 2, status: "Completado", nextMatchId: 13, nextMatchSide: "Ao" },
-  { id: 11, matchNumber: 11, competitor1: { id: 9, name: "Alejandro Díaz", academy: "Escuela Oeste" }, competitor2: { id: 11, name: "Fernando Cruz", academy: "Centro Tradicional" }, winner: 9, score1: 6, score2: 4, status: "Completado", nextMatchId: 14, nextMatchSide: "Akka" },
-  { id: 12, matchNumber: 12, competitor1: { id: 13, name: "Gabriel Reyes", academy: "Club Karate" }, competitor2: { id: 15, name: "Daniel Castro", academy: "Escuela Shoto" }, winner: 13, score1: 7, score2: 5, status: "Completado", nextMatchId: 14, nextMatchSide: "Ao" },
+  { 
+    id: 5, 
+    matchNumber: 5, 
+    competitor1: { id: 1, name: "Juan Pérez", academy: "Academia X" }, 
+    competitor2: { id: 3, name: "Miguel Sanz", academy: "Academia Z" }, 
+    status: "Pendiente", 
+    score1: null, 
+    score2: null, 
+    nextMatchId: 7, 
+    nextMatchSide: "Akka" 
+  },
+  { 
+    id: 6, 
+    matchNumber: 6, 
+    competitor1: { id: 4, name: "Luis García", academy: "Academia Z" }, 
+    competitor2: { id: 5, name: "David Torres", academy: "Academia W" }, 
+    status: "Pendiente", 
+    score1: null, 
+    score2: null, 
+    nextMatchId: 7, 
+    nextMatchSide: "Ao" 
+  },
   
-  // Ronda 3 - Semifinales
-  { id: 13, matchNumber: 13, competitor1: { id: 1, name: "Juan Pérez", academy: "Academia Dragón Rojo" }, competitor2: { id: 5, name: "Luis García", academy: "Centro Karate" }, status: "Pendiente", score1: null, score2: null, nextMatchId: 15, nextMatchSide: "Akka" },
-  { id: 14, matchNumber: 14, competitor1: { id: 9, name: "Alejandro Díaz", academy: "Escuela Oeste" }, competitor2: { id: 13, name: "Gabriel Reyes", academy: "Club Karate" }, status: "Pendiente", score1: null, score2: null, nextMatchId: 15, nextMatchSide: "Ao" },
-  
-  // Ronda 4 - Final
-  { id: 15, matchNumber: 15, status: "Pendiente", score1: null, score2: null, nextMatchId: null, nextMatchSide: null }
+  // Ronda 3 - Semifinal (Final en este caso de 5 personas)
+  { 
+    id: 7, 
+    matchNumber: 7, 
+    status: "Pendiente", 
+    score1: null, 
+    score2: null, 
+    nextMatchId: null, 
+    nextMatchSide: null 
+  }
 ];
+
+// ⭐ COMBINAR MATCHES REALES + FANTASMAS ⭐
+const hardcodedMatches: MatchTransformed[] = generateCompleteBracket(realMatches);
 
 // --- Estado reactivo ---
 const selectedCategory = ref("senior-m-75");
@@ -171,16 +297,22 @@ const showDialog = ref(false);
 const dialogContentRef = ref<HTMLElement | null>(null);
 
 // --- Computed properties ---
-const transformedMatches = computed(() => hardcodedMatches);
+const allMatches = computed(() => hardcodedMatches);
 
-// Final match (el nodo raíz del bracket)
+// Final match (el nodo raíz del bracket - el que no tiene nextMatchId)
 const finalMatch = computed(() => {
-  return transformedMatches.value.find(m => m.id === 15);
+  return allMatches.value.find(m => m.nextMatchId === null);
+});
+
+// Profundidad del bracket (para mostrar encabezados dinámicamente)
+const bracketDepth = computed(() => {
+  return calculateBracketDepth(realMatches);
 });
 
 // --- Handlers ---
 const handleOpenMatch = (match: MatchTransformed) => { 
-  if (match.id <= 0) return; 
+  // No permitir clicks en matches BYE (vacíos) o con ID negativo
+  if (match.id <= 0 || match.status === 'BYE') return; 
 
   if(match.status === 'Completado') {
     alert(`Match #${match.matchNumber} ya ha finalizado. Ganador: ${getWinnerName(match)}`);
@@ -269,3 +401,7 @@ const handleClickOutsideDialog = (event: MouseEvent) => {
 onMounted(() => document.addEventListener('mousedown', handleClickOutsideDialog));
 onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsideDialog));
 </script>
+
+<style scoped>
+/* Estilos adicionales si es necesario */
+</style>

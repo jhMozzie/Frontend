@@ -1,4 +1,5 @@
 <template>
+  <!-- Match real (id positivo) -->
   <div
     v-if="match.id > 0"
     :class="[
@@ -33,7 +34,33 @@
     </div>
   </div>
   
-  <div v-else class="w-64 h-24 bg-gray-100 opacity-0 border border-transparent rounded-md"></div>
+  <!-- Match BYE (fantasma vacío pero con estructura de match) -->
+  <div v-else class="bg-white border border-gray-200 rounded-md p-3 w-64 shadow-sm opacity-70">
+    <div class="flex justify-between items-center mb-2">
+      <span class="text-xs text-gray-400 invisible">Match #0</span>
+      <span class="text-xs text-gray-400 invisible">-</span>
+    </div>
+    
+    <!-- Competidor 1 vacío -->
+    <div class="flex items-center justify-between p-2 rounded bg-gray-50">
+      <div class="flex-1 overflow-hidden mr-2">
+        <p class="font-medium text-sm text-gray-300 truncate">-</p>
+        <p class="text-xs text-gray-200 truncate">-</p>
+      </div>
+      <span class="font-bold text-lg text-gray-300 invisible">0</span>
+    </div>
+    
+    <div class="h-px bg-gray-200 my-1.5"></div>
+    
+    <!-- Competidor 2 vacío -->
+    <div class="flex items-center justify-between p-2 rounded bg-gray-50">
+      <div class="flex-1 overflow-hidden mr-2">
+        <p class="font-medium text-sm text-gray-300 truncate">-</p>
+        <p class="text-xs text-gray-200 truncate">-</p>
+      </div>
+      <span class="font-bold text-lg text-gray-300 invisible">0</span>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">

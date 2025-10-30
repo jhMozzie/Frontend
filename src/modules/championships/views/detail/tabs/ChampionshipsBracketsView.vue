@@ -15,11 +15,12 @@
 
     <!-- Brackets con encabezados -->
     <div class="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <div class="overflow-x-auto">
-        <div class="p-6">
+      <!-- Contenedor con altura fija y scroll -->
+      <div class="overflow-auto" style="max-height: calc(100vh - 250px);">
+        <div class="p-6 min-w-max">
           
           <!-- Encabezados dinámicos según profundidad del bracket -->
-          <div class="flex gap-8 mb-6">
+          <div class="flex gap-8 mb-6 sticky top-0 bg-white z-10 pb-4">
             <div v-if="bracketDepth >= 4" class="flex-shrink-0" style="width: 314px;">
               <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
                 Octavos de Final
@@ -50,6 +51,18 @@
               @open-match="handleOpenMatch"
               :is-root="true"
             />
+          </div>
+          
+          <!-- Mensaje si no hay matches -->
+          <div v-else-if="!championshipStore.matchesLoading" class="text-center py-12 text-gray-500">
+            <p class="text-lg font-medium">No hay brackets disponibles</p>
+            <p class="text-sm mt-2">Selecciona una categoría o genera los brackets para este campeonato</p>
+          </div>
+          
+          <!-- Indicador de carga -->
+          <div v-if="championshipStore.matchesLoading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+            <p class="mt-4 text-gray-600">Cargando brackets...</p>
           </div>
 
         </div>

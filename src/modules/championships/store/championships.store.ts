@@ -343,6 +343,33 @@ export const useChampionshipStore = defineStore("championships", () => {
     }
   }
 
+  const updateMatchResult = async (
+    matchId: number, 
+    winnerId: number, 
+    scores?: { scoreAkka: number; scoreAo: number }
+  ) => {
+    try {
+      const result = await matchService.updateMatchResult(matchId, winnerId);
+      
+      // Actualizar el match en el estado local
+      const matchIndex = matches.value.findIndex(m => m.id === matchId);
+      if (matchIndex !== -1) {
+        const match = matches.value[matchIndex];
+        if (match && scores) {
+          match.winnerId = winnerId;
+          match.scoreAkka = scores.scoreAkka;
+          match.scoreAo = scores.scoreAo;
+          match.status = 'Completado';
+        }
+      }
+      
+      return result;
+    } catch (err: any) {
+      console.error("Error al actualizar resultado del match:", err);
+      throw err;
+    }
+  }
+
   const generateBrackets = async (championshipId: number) => {
     try {
       // 💥 CORRECCIÓN: Retorna la respuesta del servicio (que contiene el mensaje)
@@ -385,6 +412,7 @@ export const useChampionshipStore = defineStore("championships", () => {
     matchesLoading,
     matchesError,
     fetchMatches,
+    updateMatchResult,
     generateBrackets,
     exportBracketsPdf,
   }

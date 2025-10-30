@@ -5,13 +5,11 @@
         <h2 class="text-lg font-semibold text-gray-800">Visualización de Llaves</h2>
         <p class="text-sm text-gray-500">Selecciona una categoría para ver su bracket.</p>
       </div>
-      <select v-model="selectedCategory" class="w-full sm:w-72 rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0">
-        <option value="senior-m-75">Senior Masculino -75kg</option>
-        <option value="infantil-m-35">Infantil Masculino -35kg</option>
-        <option value="infantil-f-35">Infantil Femenino -35kg</option>
-        <option value="juvenil-m-68">Juvenil Masculino -68kg</option>
-        <option value="juvenil-f-61">Juvenil Femenino -61kg</option>
-        <option value="senior-f-61">Senior Femenino -61kg</option>
+      <select v-model="selectedCategoryId" class="w-full sm:w-72 rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0" @change="handleCategoryChange">
+        <option :value="null" disabled>Selecciona una categoría</option>
+        <option v-for="category in championshipStore.championshipCategories" :key="category.id" :value="category.id">
+          {{ category.modality }} {{ category.gender }} - {{ category.weight || category.ageRangeLabel }}
+        </option>
       </select>
     </div>
 
@@ -113,8 +111,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { useRoute } from 'vue-router';
 import { LucidePlus, LucideMinus, LucideTrophy } from 'lucide-vue-next';
 import BracketNode from '@/modules/championships/components/brackets/BracketNode.vue';
+import { useChampionshipStore } from '@/modules/championships/store/championships.store';
+import type { Match } from '@/modules/championships/types';
+
+const route = useRoute();
+const championshipStore = useChampionshipStore();
 
 // --- Tipos ---
 interface Competitor { 
@@ -134,6 +138,30 @@ interface MatchTransformed {
   status: string; 
   nextMatchId: number | null; 
   nextMatchSide: string | null;
+}
+
+// ⭐ FUNCIÓN PARA TRANSFORMAR MATCHES DEL BACKEND AL FORMATO DEL COMPONENTE ⭐
+function transformMatchFromAPI(match: Match): MatchTransformed {
+  return {
+    id: match.id,
+    matchNumber: match.matchNumber,
+    competitor1: match.participantAkka ? {
+      id: match.participantAkka.id,
+      name: `${match.participantAkka.student.firstname} ${match.participantAkka.student.lastname}`,
+      academy: match.participantAkka.student.academy.name
+    } : undefined,
+    competitor2: match.participantAo ? {
+      id: match.participantAo.id,
+      name: `${match.participantAo.student.firstname} ${match.participantAo.student.lastname}`,
+      academy: match.participantAo.student.academy.name
+    } : undefined,
+    winner: match.winnerId || undefined,
+    score1: match.scoreAkka,
+    score2: match.scoreAo,
+    status: match.status,
+    nextMatchId: match.nextMatchId,
+    nextMatchSide: match.nextMatchSide
+  };
 }
 
 // ⭐ FUNCIÓN PARA CALCULAR LA PROFUNDIDAD NECESARIA DEL BRACKET ⭐
@@ -168,10 +196,10 @@ function generateCompleteBracket(realMatches: MatchTransformed[]): MatchTransfor
   if (!finalMatch) return allMatches;
   
   // Función recursiva para completar el árbol
-  function ensureChildren(parentMatch: MatchTransformed, depth: number = 0): void {
+  function ensureChildren(parentMatch: MatchTransformed, depth: number = 1): void {
     const children = allMatches.filter(m => m.nextMatchId === parentMatch.id);
     
-    // Solo generar hijos hasta la profundidad máxima real
+    // Solo generar hijos si no hemos alcanzado la profundidad máxima
     if (children.length === 0 && depth < maxDepth) {
       // Crear dos hijos fantasma
       const childAkka: MatchTransformed = {
@@ -222,74 +250,21 @@ function generateCompleteBracket(realMatches: MatchTransformed[]): MatchTransfor
       ensureChildren(missingChild, depth + 1);
       
     } else if (children.length === 2) {
-      // Ya tiene los dos hijos, seguir con la recursión
-      children.forEach(child => ensureChildren(child, depth + 1));
+      // Ya tiene los dos hijos, seguir con la recursión solo si no hemos llegado al máximo
+      if (depth < maxDepth) {
+        children.forEach(child => ensureChildren(child, depth + 1));
+      }
     }
   }
   
-  // Iniciar desde el match final
-  ensureChildren(finalMatch);
+  // Iniciar desde el match final con depth = 1
+  ensureChildren(finalMatch, 1);
   
   return allMatches;
 }
 
-// --- Datos de ejemplo - Caso con 5 competidores (Play-In) ---
-const realMatches: MatchTransformed[] = [
-  // Ronda 1 - Octavos de final (SOLO 1 PELEA REAL - Play In)
-  { 
-    id: 1, 
-    matchNumber: 1, 
-    competitor1: { id: 1, name: "Juan Pérez", academy: "Academia X" }, 
-    competitor2: { id: 2, name: "Carlos Ruiz", academy: "Academia X" }, 
-    winner: 1, 
-    score1: 8, 
-    score2: 5, 
-    status: "Completado", 
-    nextMatchId: 5, 
-    nextMatchSide: "Akka" 
-  },
-  
-  // Ronda 2 - Cuartos de final
-  { 
-    id: 5, 
-    matchNumber: 5, 
-    competitor1: { id: 1, name: "Juan Pérez", academy: "Academia X" }, 
-    competitor2: { id: 3, name: "Miguel Sanz", academy: "Academia Z" }, 
-    status: "Pendiente", 
-    score1: null, 
-    score2: null, 
-    nextMatchId: 7, 
-    nextMatchSide: "Akka" 
-  },
-  { 
-    id: 6, 
-    matchNumber: 6, 
-    competitor1: { id: 4, name: "Luis García", academy: "Academia Z" }, 
-    competitor2: { id: 5, name: "David Torres", academy: "Academia W" }, 
-    status: "Pendiente", 
-    score1: null, 
-    score2: null, 
-    nextMatchId: 7, 
-    nextMatchSide: "Ao" 
-  },
-  
-  // Ronda 3 - Semifinal (Final en este caso de 5 personas)
-  { 
-    id: 7, 
-    matchNumber: 7, 
-    status: "Pendiente", 
-    score1: null, 
-    score2: null, 
-    nextMatchId: null, 
-    nextMatchSide: null 
-  }
-];
-
-// ⭐ COMBINAR MATCHES REALES + FANTASMAS ⭐
-const hardcodedMatches: MatchTransformed[] = generateCompleteBracket(realMatches);
-
 // --- Estado reactivo ---
-const selectedCategory = ref("senior-m-75");
+const selectedCategoryId = ref<number | null>(null);
 const selectedMatch = ref<MatchTransformed | null>(null);
 const tempScore1 = ref(0);
 const tempScore2 = ref(0);
@@ -297,7 +272,25 @@ const showDialog = ref(false);
 const dialogContentRef = ref<HTMLElement | null>(null);
 
 // --- Computed properties ---
-const allMatches = computed(() => hardcodedMatches);
+// Transformar matches del API a formato del componente
+const realMatches = computed(() => {
+  if (!championshipStore.matches || championshipStore.matches.length === 0) {
+    return [];
+  }
+  
+  // Filtrar por categoría seleccionada si existe
+  const filteredMatches = selectedCategoryId.value 
+    ? championshipStore.matches.filter(m => m.championshipCategoryId === selectedCategoryId.value)
+    : championshipStore.matches;
+  
+  return filteredMatches.map(transformMatchFromAPI);
+});
+
+// Generar bracket completo con BYE matches
+const allMatches = computed(() => {
+  if (realMatches.value.length === 0) return [];
+  return generateCompleteBracket(realMatches.value);
+});
 
 // Final match (el nodo raíz del bracket - el que no tiene nextMatchId)
 const finalMatch = computed(() => {
@@ -306,7 +299,8 @@ const finalMatch = computed(() => {
 
 // Profundidad del bracket (para mostrar encabezados dinámicamente)
 const bracketDepth = computed(() => {
-  return calculateBracketDepth(realMatches);
+  if (realMatches.value.length === 0) return 1;
+  return calculateBracketDepth(realMatches.value);
 });
 
 // --- Handlers ---
@@ -336,44 +330,44 @@ const closeDialog = () => {
   tempScore2.value = 0;
 };
 
-const handleSaveResult = () => {
+const handleSaveResult = async () => {
   if (!selectedMatch.value) return;
   
   const currentMatch = selectedMatch.value;
   
-  // Actualizar el match hardcodeado con los nuevos resultados
-  const matchIndex = hardcodedMatches.findIndex(m => m.id === currentMatch.id);
-  if (matchIndex !== -1) {
-    const match = hardcodedMatches[matchIndex];
-    if (!match) return;
-    
-    const winnerId = tempScore1.value > tempScore2.value ? currentMatch.competitor1?.id : 
-                    tempScore1.value < tempScore2.value ? currentMatch.competitor2?.id : undefined;
-    
-    match.score1 = tempScore1.value;
-    match.score2 = tempScore2.value;
-    match.status = 'Completado';
-    match.winner = winnerId;
-    
-    // Si hay un siguiente match, actualizar los competidores
-    if (match.nextMatchId) {
-      const nextMatchIndex = hardcodedMatches.findIndex(m => m.id === match.nextMatchId);
-      if (nextMatchIndex !== -1 && winnerId) {
-        const nextMatch = hardcodedMatches[nextMatchIndex];
-        if (!nextMatch) return;
-        
-        const winnerCompetitor = tempScore1.value > tempScore2.value ? currentMatch.competitor1 : currentMatch.competitor2;
-        
-        if (match.nextMatchSide === 'Akka') {
-          nextMatch.competitor1 = winnerCompetitor;
-        } else if (match.nextMatchSide === 'Ao') {
-          nextMatch.competitor2 = winnerCompetitor;
-        }
-      }
-    }
+  // Determinar el ganador
+  const winnerId = tempScore1.value > tempScore2.value ? currentMatch.competitor1?.id : 
+                  tempScore1.value < tempScore2.value ? currentMatch.competitor2?.id : undefined;
+  
+  if (!winnerId) {
+    alert("Debe haber un ganador (no puede haber empate)");
+    return;
   }
   
-  closeDialog();
+  try {
+    // Actualizar resultado en el backend
+    await championshipStore.updateMatchResult(currentMatch.id, winnerId, {
+      scoreAkka: tempScore1.value,
+      scoreAo: tempScore2.value
+    });
+    
+    // Recargar matches de la categoría actual
+    if (selectedCategoryId.value) {
+      await championshipStore.fetchMatches(selectedCategoryId.value);
+    }
+    
+    closeDialog();
+  } catch (error) {
+    console.error('Error al guardar resultado:', error);
+    alert('Error al guardar el resultado del combate');
+  }
+};
+
+// Handler para cambio de categoría
+const handleCategoryChange = async () => {
+  if (selectedCategoryId.value) {
+    await championshipStore.fetchMatches(selectedCategoryId.value);
+  }
 };
 
 const adjustScore = (scoreRefKey: 'tempScore1' | 'tempScore2', amount: number) => {
@@ -398,7 +392,27 @@ const handleClickOutsideDialog = (event: MouseEvent) => {
   }
 };
 
-onMounted(() => document.addEventListener('mousedown', handleClickOutsideDialog));
+// Cargar categorías y matches al montar
+onMounted(async () => {
+  document.addEventListener('mousedown', handleClickOutsideDialog);
+  
+  const championshipId = Number(route.params.id);
+  
+  // Cargar categorías del campeonato
+  if (championshipId) {
+    await championshipStore.fetchChampionshipCategories(championshipId);
+    
+    // Seleccionar la primera categoría automáticamente
+    if (championshipStore.championshipCategories.length > 0) {
+      const firstCategory = championshipStore.championshipCategories[0];
+      if (firstCategory) {
+        selectedCategoryId.value = firstCategory.id;
+        await championshipStore.fetchMatches(selectedCategoryId.value);
+      }
+    }
+  }
+});
+
 onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsideDialog));
 </script>
 

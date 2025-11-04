@@ -21,11 +21,11 @@ export const useStudentStore = defineStore("students", () => {
   const error = ref<string | null>(null)
 
   // 📦 Obtener estudiantes paginados
-  const fetchStudents = async (page = 1, limit = 10) => {
+  const fetchStudents = async (page = 1, limit = 10, academyId?: number) => {
     loading.value = true
     error.value = null
     try {
-      const response = await studentService.getAll(page, limit)
+      const response = await studentService.getAll(page, limit, academyId)
       students.value = response.data
       Object.assign(meta.value, response.meta) // mantiene referencia reactiva
     } catch (err: any) {

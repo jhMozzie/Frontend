@@ -69,51 +69,273 @@
       </div>
     </div>
 
-    <!-- Diálogo para registrar resultados -->
+    <!-- Diálogo mejorado para registrar resultados (Kumite y Kata) -->
     <div v-if="showDialog" class="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md" ref="dialogContentRef">
-        <div class="border-b border-gray-200 px-6 py-4">
-          <h3 class="text-lg font-semibold text-gray-900">Registrar Resultado - Match #{{ selectedMatch?.matchNumber }}</h3>
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" ref="dialogContentRef">
+        <!-- Header -->
+        <div class="border-b border-gray-200 px-6 py-4 space-y-1">
+          <h3 class="text-xl font-semibold text-gray-900">Registrar Resultado - Match #{{ selectedMatch?.matchNumber }}</h3>
+          <p v-if="selectedMatch?.categoryInfo" class="text-sm text-gray-500">{{ selectedMatch.categoryInfo }}</p>
         </div>
+
+        <!-- Content -->
         <div class="space-y-6 p-6">
-          <div class="space-y-1">
-            <div class="font-medium">{{ selectedMatch?.competitor1?.name || "Pendiente" }}</div>
-            <div v-if="selectedMatch?.competitor1?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor1.academy }}</div>
-            <div class="flex items-center gap-3 pt-1">
-              <button @click="adjustScore('tempScore1', -1)" :disabled="tempScore1 <= 0" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                <LucideMinus class="w-4 h-4" />
-              </button>
-              <div class="text-3xl font-bold w-16 text-center tabular-nums">{{ tempScore1 }}</div>
-              <button @click="adjustScore('tempScore1', 1)" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
-                <LucidePlus class="w-4 h-4" />
-              </button>
+          <!-- Tipo de competencia detectado automáticamente (solo lectura visual) -->
+          <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center gap-3">
+              <div class="text-2xl">{{ competitionType === 'kumite' ? '🥋' : '🎭' }}</div>
+              <div>
+                <div class="text-sm font-medium text-gray-600">Modalidad</div>
+                <div class="text-lg font-bold text-blue-700">
+                  {{ competitionType === 'kumite' ? 'Kumite (Combate)' : 'Kata (Forma)' }}
+                </div>
+              </div>
             </div>
           </div>
-          <div class="h-px bg-gray-200"></div>
-          <div class="space-y-1">
-            <div class="font-medium">{{ selectedMatch?.competitor2?.name || "Pendiente" }}</div>
-            <div v-if="selectedMatch?.competitor2?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor2.academy }}</div>
-            <div class="flex items-center gap-3 pt-1">
-              <button @click="adjustScore('tempScore2', -1)" :disabled="tempScore2 <= 0" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                <LucideMinus class="w-4 h-4" />
-              </button>
-              <div class="text-3xl font-bold w-16 text-center tabular-nums">{{ tempScore2 }}</div>
-              <button @click="adjustScore('tempScore2', 1)" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200">
-                <LucidePlus class="w-4 h-4" />
-              </button>
+
+          <!-- Modo Kumite -->
+          <template v-if="competitionType === 'kumite'">
+            <!-- Competidor 1 -->
+            <div class="space-y-3 p-4 bg-white border-2 border-gray-200 rounded-lg">
+              <div class="font-semibold text-lg text-gray-900">{{ selectedMatch?.competitor1?.name || "Pendiente" }}</div>
+              <div v-if="selectedMatch?.competitor1?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor1.academy }}</div>
+              
+              <div class="space-y-3">
+                <!-- Puntos -->
+                <div>
+                  <label class="text-xs text-gray-500 mb-2 block">Puntos</label>
+                  <div class="flex items-center gap-3">
+                    <button @click="tempScore1 = Math.max(0, tempScore1 - 1)" class="p-2 rounded-md bg-gray-100 hover:bg-gray-200">
+                      <LucideMinus class="w-4 h-4" />
+                    </button>
+                    <div class="text-4xl font-bold w-20 text-center text-blue-600">{{ tempScore1 }}</div>
+                    <button @click="tempScore1++" class="p-2 rounded-md bg-gray-100 hover:bg-gray-200">
+                      <LucidePlus class="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Faltas, Senshu, Hansoku -->
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="text-xs text-gray-500 mb-2 block">Faltas</label>
+                    <div class="flex items-center gap-2">
+                      <button @click="tempFouls1 = Math.max(0, tempFouls1 - 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                        <LucideMinus class="w-3 h-3" />
+                      </button>
+                      <span class="text-xl font-bold w-8 text-center">{{ tempFouls1 }}</span>
+                      <button @click="tempFouls1 = Math.min(4, tempFouls1 + 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                        <LucidePlus class="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-2">
+                    <label class="text-xs text-gray-500">Senshu</label>
+                    <button
+                      @click="tempSenshu1 = !tempSenshu1"
+                      :class="[
+                        'w-full px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                        tempSenshu1 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      {{ tempSenshu1 ? '✓' : '—' }}
+                    </button>
+                  </div>
+
+                  <div class="flex flex-col gap-2">
+                    <label class="text-xs text-gray-500">Hansoku</label>
+                    <button
+                      @click="tempHansoku1 = !tempHansoku1"
+                      :class="[
+                        'w-full px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                        tempHansoku1 ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      {{ tempHansoku1 ? '✗' : '—' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div v-if="tempScore1 !== tempScore2" class="flex items-center gap-2 text-sm text-green-600 font-medium">
-            <LucideTrophy class="w-4 h-4" />
-            <span>Ganador: {{ tempScore1 > tempScore2 ? selectedMatch?.competitor1?.name : selectedMatch?.competitor2?.name }}</span>
-          </div>
-          <div v-else class="text-sm text-gray-500 italic">El resultado es un empate.</div>
+
+            <div class="h-px bg-gray-200"></div>
+
+            <!-- Competidor 2 -->
+            <div class="space-y-3 p-4 bg-white border-2 border-gray-200 rounded-lg">
+              <div class="font-semibold text-lg text-gray-900">{{ selectedMatch?.competitor2?.name || "Pendiente" }}</div>
+              <div v-if="selectedMatch?.competitor2?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor2.academy }}</div>
+              
+              <div class="space-y-3">
+                <!-- Puntos -->
+                <div>
+                  <label class="text-xs text-gray-500 mb-2 block">Puntos</label>
+                  <div class="flex items-center gap-3">
+                    <button @click="tempScore2 = Math.max(0, tempScore2 - 1)" class="p-2 rounded-md bg-gray-100 hover:bg-gray-200">
+                      <LucideMinus class="w-4 h-4" />
+                    </button>
+                    <div class="text-4xl font-bold w-20 text-center text-blue-600">{{ tempScore2 }}</div>
+                    <button @click="tempScore2++" class="p-2 rounded-md bg-gray-100 hover:bg-gray-200">
+                      <LucidePlus class="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Faltas, Senshu, Hansoku -->
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="text-xs text-gray-500 mb-2 block">Faltas</label>
+                    <div class="flex items-center gap-2">
+                      <button @click="tempFouls2 = Math.max(0, tempFouls2 - 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                        <LucideMinus class="w-3 h-3" />
+                      </button>
+                      <span class="text-xl font-bold w-8 text-center">{{ tempFouls2 }}</span>
+                      <button @click="tempFouls2 = Math.min(4, tempFouls2 + 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                        <LucidePlus class="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-2">
+                    <label class="text-xs text-gray-500">Senshu</label>
+                    <button
+                      @click="tempSenshu2 = !tempSenshu2"
+                      :class="[
+                        'w-full px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                        tempSenshu2 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      {{ tempSenshu2 ? '✓' : '—' }}
+                    </button>
+                  </div>
+
+                  <div class="flex flex-col gap-2">
+                    <label class="text-xs text-gray-500">Hansoku</label>
+                    <button
+                      @click="tempHansoku2 = !tempHansoku2"
+                      :class="[
+                        'w-full px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                        tempHansoku2 ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      {{ tempHansoku2 ? '✗' : '—' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Indicador de ganador para Kumite -->
+            <div v-if="kumiteWinner" class="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <LucideTrophy class="w-5 h-5 text-blue-600" />
+              <span class="font-semibold text-blue-700">Ganador: {{ kumiteWinner }}</span>
+            </div>
+          </template>
+
+          <!-- Modo Kata -->
+          <template v-else>
+            <!-- Competidor 1 -->
+            <div class="space-y-3 p-4 bg-white border-2 border-gray-200 rounded-lg">
+              <div class="font-semibold text-lg text-gray-900">{{ selectedMatch?.competitor1?.name || "Pendiente" }}</div>
+              <div v-if="selectedMatch?.competitor1?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor1.academy }}</div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                    🚩 Banderas Rojas
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <button @click="tempRedFlags1 = Math.max(0, tempRedFlags1 - 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucideMinus class="w-3 h-3" />
+                    </button>
+                    <span class="text-3xl font-bold w-12 text-center text-red-600">{{ tempRedFlags1 }}</span>
+                    <button @click="tempRedFlags1 = Math.min(5, tempRedFlags1 + 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucidePlus class="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                    🔵 Banderas Azules
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <button @click="tempBlueFlags1 = Math.max(0, tempBlueFlags1 - 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucideMinus class="w-3 h-3" />
+                    </button>
+                    <span class="text-3xl font-bold w-12 text-center text-blue-600">{{ tempBlueFlags1 }}</span>
+                    <button @click="tempBlueFlags1 = Math.min(5, tempBlueFlags1 + 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucidePlus class="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="text-center pt-2 border-t border-gray-200">
+                <span class="text-sm text-gray-500">Total: </span>
+                <span class="text-2xl font-bold text-blue-600">{{ tempRedFlags1 + tempBlueFlags1 }}</span>
+              </div>
+            </div>
+
+            <div class="h-px bg-gray-200"></div>
+
+            <!-- Competidor 2 -->
+            <div class="space-y-3 p-4 bg-white border-2 border-gray-200 rounded-lg">
+              <div class="font-semibold text-lg text-gray-900">{{ selectedMatch?.competitor2?.name || "Pendiente" }}</div>
+              <div v-if="selectedMatch?.competitor2?.academy" class="text-sm text-gray-500">{{ selectedMatch.competitor2.academy }}</div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                    🚩 Banderas Rojas
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <button @click="tempRedFlags2 = Math.max(0, tempRedFlags2 - 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucideMinus class="w-3 h-3" />
+                    </button>
+                    <span class="text-3xl font-bold w-12 text-center text-red-600">{{ tempRedFlags2 }}</span>
+                    <button @click="tempRedFlags2 = Math.min(5, tempRedFlags2 + 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucidePlus class="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                    🔵 Banderas Azules
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <button @click="tempBlueFlags2 = Math.max(0, tempBlueFlags2 - 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucideMinus class="w-3 h-3" />
+                    </button>
+                    <span class="text-3xl font-bold w-12 text-center text-blue-600">{{ tempBlueFlags2 }}</span>
+                    <button @click="tempBlueFlags2 = Math.min(5, tempBlueFlags2 + 1)" class="p-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+                      <LucidePlus class="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="text-center pt-2 border-t border-gray-200">
+                <span class="text-sm text-gray-500">Total: </span>
+                <span class="text-2xl font-bold text-blue-600">{{ tempRedFlags2 + tempBlueFlags2 }}</span>
+              </div>
+            </div>
+
+            <!-- Indicador de ganador para Kata -->
+            <div v-if="kataWinner" class="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <LucideTrophy class="w-5 h-5 text-blue-600" />
+              <span class="font-semibold text-blue-700">Ganador: {{ kataWinner }}</span>
+            </div>
+          </template>
         </div>
+
+        <!-- Footer -->
         <div class="border-t border-gray-200 bg-gray-50 px-6 py-4 flex justify-end gap-3 rounded-b-lg">
           <button @click="closeDialog" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
             Cancelar
           </button>
-          <button @click="handleSaveResult" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700">
+          <button @click="handleSaveResult" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 min-w-[150px]">
             Guardar Resultado
           </button>
         </div>
@@ -133,6 +355,33 @@ import type { Match } from '@/modules/championships/types';
 const route = useRoute();
 const championshipStore = useChampionshipStore();
 
+// --- Estado del diálogo ---
+const showDialog = ref(false)
+const selectedMatch = ref<MatchTransformed | null>(null)
+const dialogContentRef = ref<HTMLElement | null>(null)
+
+// Tipo de competencia
+const competitionType = ref<'kumite' | 'kata'>('kumite')
+
+// Variables para Kumite
+const tempScore1 = ref(0)
+const tempScore2 = ref(0)
+const tempFouls1 = ref(0)
+const tempFouls2 = ref(0)
+const tempSenshu1 = ref(false)
+const tempSenshu2 = ref(false)
+const tempHansoku1 = ref(false)
+const tempHansoku2 = ref(false)
+
+// Variables para Kata
+const tempRedFlags1 = ref(0)
+const tempBlueFlags1 = ref(0)
+const tempRedFlags2 = ref(0)
+const tempBlueFlags2 = ref(0)
+
+// Estado de categorías
+const selectedCategoryId = ref<number | null>(null)
+
 // --- Tipos ---
 interface Competitor { 
   id: number; 
@@ -151,6 +400,8 @@ interface MatchTransformed {
   status: string; 
   nextMatchId: number | null; 
   nextMatchSide: string | null;
+  modality?: 'Kumite' | 'Kata'; // Tipo de competencia detectado desde la categoría
+  categoryInfo?: string; // Información adicional de la categoría
 }
 
 // ⭐ FUNCIÓN PARA TRANSFORMAR MATCHES DEL BACKEND AL FORMATO DEL COMPONENTE ⭐
@@ -173,7 +424,11 @@ function transformMatchFromAPI(match: Match): MatchTransformed {
     score2: match.scoreAo,
     status: match.status,
     nextMatchId: match.nextMatchId,
-    nextMatchSide: match.nextMatchSide
+    nextMatchSide: match.nextMatchSide,
+    modality: match.championshipCategory?.modality, // Detectar modalidad automáticamente
+    categoryInfo: match.championshipCategory 
+      ? `${match.championshipCategory.modality} ${match.championshipCategory.gender} - ${match.championshipCategory.ageRange.label}`
+      : undefined
   };
 }
 
@@ -276,14 +531,6 @@ function generateCompleteBracket(realMatches: MatchTransformed[]): MatchTransfor
   return allMatches;
 }
 
-// --- Estado reactivo ---
-const selectedCategoryId = ref<number | null>(null);
-const selectedMatch = ref<MatchTransformed | null>(null);
-const tempScore1 = ref(0);
-const tempScore2 = ref(0);
-const showDialog = ref(false);
-const dialogContentRef = ref<HTMLElement | null>(null);
-
 // --- Computed properties ---
 // Transformar matches del API a formato del componente
 const realMatches = computed(() => {
@@ -316,6 +563,50 @@ const bracketDepth = computed(() => {
   return calculateBracketDepth(realMatches.value);
 });
 
+// Determinar ganador en modo Kumite
+const kumiteWinner = computed(() => {
+  if (!selectedMatch.value) return null;
+  
+  const comp1 = selectedMatch.value.competitor1;
+  const comp2 = selectedMatch.value.competitor2;
+  
+  if (!comp1 || !comp2) return null;
+  
+  // 1. Hansoku tiene prioridad máxima (descalificación)
+  if (tempHansoku1.value && !tempHansoku2.value) return comp2.name;
+  if (tempHansoku2.value && !tempHansoku1.value) return comp1.name;
+  if (tempHansoku1.value && tempHansoku2.value) return "Ambos descalificados";
+  
+  // 2. Comparar puntos
+  if (tempScore1.value > tempScore2.value) return comp1.name;
+  if (tempScore2.value > tempScore1.value) return comp2.name;
+  
+  // 3. Empate en puntos - revisar Senshu (primer punto)
+  if (tempSenshu1.value && !tempSenshu2.value) return comp1.name;
+  if (tempSenshu2.value && !tempSenshu1.value) return comp2.name;
+  
+  // 4. Empate total
+  return "Empate";
+});
+
+// Determinar ganador en modo Kata
+const kataWinner = computed(() => {
+  if (!selectedMatch.value) return null;
+  
+  const comp1 = selectedMatch.value.competitor1;
+  const comp2 = selectedMatch.value.competitor2;
+  
+  if (!comp1 || !comp2) return null;
+  
+  const total1 = tempRedFlags1.value + tempBlueFlags1.value;
+  const total2 = tempRedFlags2.value + tempBlueFlags2.value;
+  
+  if (total1 > total2) return comp1.name;
+  if (total2 > total1) return comp2.name;
+  
+  return "Empate";
+});
+
 // --- Handlers ---
 const handleOpenMatch = (match: MatchTransformed) => { 
   // No permitir clicks en matches BYE (vacíos) o con ID negativo
@@ -331,16 +622,51 @@ const handleOpenMatch = (match: MatchTransformed) => {
   }
   
   selectedMatch.value = match;
+  
+  // 🎯 DETECCIÓN AUTOMÁTICA: Usar la modalidad de la categoría
+  competitionType.value = match.modality?.toLowerCase() === 'kata' ? 'kata' : 'kumite';
+  
+  // Kumite
   tempScore1.value = match.score1 || 0;
   tempScore2.value = match.score2 || 0;
+  tempFouls1.value = 0;
+  tempFouls2.value = 0;
+  tempSenshu1.value = false;
+  tempSenshu2.value = false;
+  tempHansoku1.value = false;
+  tempHansoku2.value = false;
+  
+  // Kata
+  tempRedFlags1.value = 0;
+  tempBlueFlags1.value = 0;
+  tempRedFlags2.value = 0;
+  tempBlueFlags2.value = 0;
+  
   showDialog.value = true;
 };
 
 const closeDialog = () => { 
   showDialog.value = false; 
   selectedMatch.value = null; 
+  
+  // Reset Kumite
   tempScore1.value = 0;
   tempScore2.value = 0;
+  tempFouls1.value = 0;
+  tempFouls2.value = 0;
+  tempSenshu1.value = false;
+  tempSenshu2.value = false;
+  tempHansoku1.value = false;
+  tempHansoku2.value = false;
+  
+  // Reset Kata
+  tempRedFlags1.value = 0;
+  tempBlueFlags1.value = 0;
+  tempRedFlags2.value = 0;
+  tempBlueFlags2.value = 0;
+  
+  // Reset tipo de competencia
+  competitionType.value = 'kumite';
 };
 
 const handleSaveResult = async () => {
@@ -348,20 +674,48 @@ const handleSaveResult = async () => {
   
   const currentMatch = selectedMatch.value;
   
-  // Determinar el ganador
-  const winnerId = tempScore1.value > tempScore2.value ? currentMatch.competitor1?.id : 
-                  tempScore1.value < tempScore2.value ? currentMatch.competitor2?.id : undefined;
+  let winnerId: number | undefined;
+  
+  if (competitionType.value === 'kumite') {
+    // Validar que no haya empate total
+    if (kumiteWinner.value === "Empate" || kumiteWinner.value === "Ambos descalificados") {
+      alert("Debe haber un ganador claro. No puede haber empate.");
+      return;
+    }
+    
+    // Determinar winnerId basado en el nombre del ganador
+    if (kumiteWinner.value === currentMatch.competitor1?.name) {
+      winnerId = currentMatch.competitor1.id;
+    } else if (kumiteWinner.value === currentMatch.competitor2?.name) {
+      winnerId = currentMatch.competitor2.id;
+    }
+  } else {
+    // Modo Kata
+    if (kataWinner.value === "Empate") {
+      alert("Debe haber un ganador claro. No puede haber empate.");
+      return;
+    }
+    
+    // Determinar winnerId basado en el nombre del ganador
+    if (kataWinner.value === currentMatch.competitor1?.name) {
+      winnerId = currentMatch.competitor1.id;
+    } else if (kataWinner.value === currentMatch.competitor2?.name) {
+      winnerId = currentMatch.competitor2.id;
+    }
+  }
   
   if (!winnerId) {
-    alert("Debe haber un ganador (no puede haber empate)");
+    alert("Error al determinar el ganador");
     return;
   }
   
   try {
     // Actualizar resultado en el backend
+    // Nota: Por ahora enviamos solo scoreAkka/scoreAo
+    // TODO: Actualizar backend para aceptar fouls, senshu, hansoku, flags
     await championshipStore.updateMatchResult(currentMatch.id, winnerId, {
-      scoreAkka: tempScore1.value,
-      scoreAo: tempScore2.value
+      scoreAkka: competitionType.value === 'kumite' ? tempScore1.value : tempRedFlags1.value + tempBlueFlags1.value,
+      scoreAo: competitionType.value === 'kumite' ? tempScore2.value : tempRedFlags2.value + tempBlueFlags2.value
     });
     
     // Recargar matches de la categoría actual
@@ -380,14 +734,6 @@ const handleSaveResult = async () => {
 const handleCategoryChange = async () => {
   if (selectedCategoryId.value) {
     await championshipStore.fetchMatches(selectedCategoryId.value);
-  }
-};
-
-const adjustScore = (scoreRefKey: 'tempScore1' | 'tempScore2', amount: number) => {
-  if (scoreRefKey === 'tempScore1') {
-    tempScore1.value = Math.max(0, tempScore1.value + amount);
-  } else {
-    tempScore2.value = Math.max(0, tempScore2.value + amount);
   }
 };
 

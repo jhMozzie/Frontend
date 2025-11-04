@@ -7,6 +7,7 @@ export interface ParticipantListParams {
     championshipId: number;
     categoryId?: number;
     studentId?: number;
+    academyId?: number; // 🆕 Para filtrar por academia
 }
 
 /**

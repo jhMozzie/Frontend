@@ -38,12 +38,18 @@
                </button>
              </div>
              <div class="space-y-4">
-                <div>
+                <!-- 🆕 Solo mostrar filtro de academia para administradores -->
+                <div v-if="userRole !== 'Entrenador'">
                   <label for="filter-academy" class="block text-sm font-medium text-gray-700 mb-1">Academia / Club</label>
                   <select v-model="filters.academyName" id="filter-academy" class="w-full rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0">
                     <option value="all">Todos</option>
                     <option v-for="club in uniqueClubs" :key="club" :value="club">{{ club }}</option>
                   </select>
+                </div>
+                <!-- 🆕 Mensaje informativo para entrenadores -->
+                <div v-else class="text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p class="font-medium">Vista de Entrenador</p>
+                  <p class="text-xs mt-1">Solo puedes ver y gestionar estudiantes de tu academia.</p>
                 </div>
              </div>
              <button @click="close" class="mt-4 w-full inline-flex items-center justify-center bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm">
@@ -53,7 +59,8 @@
         </FilterPopover>
       </div>
 
-      <div class="flex gap-2 w-full sm:w-auto">
+      <!-- Botón "Añadir Competidor" - Oculto cuando está PRE_INSCRITO -->
+      <div v-if="participationStatus !== 'PreInscrito'" class="flex gap-2 w-full sm:w-auto">
         <button
           @click="handleAddCompetitor"
           class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
@@ -87,16 +94,26 @@
 
         <template #actions="{ item }">
           <div class="flex justify-end gap-3 whitespace-nowrap">
-            <button @click="handleEdit(item.id)" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900" title="Editar Inscripciones">
-              <LucidePencil class="w-4 h-4" />
-            </button>
-            
-            <button @click="viewDetails(item.id)" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800" title="Ver Detalles">
-              <LucideEye class="w-4 h-4" />
-            </button>
-            <button @click="handleDelete(item.id)" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800" title="Eliminar">
-              <LucideTrash2 class="w-4 h-4" />
-            </button>
+            <!-- Ocultar acciones de edición y eliminación cuando está PRE_INSCRITO -->
+            <template v-if="participationStatus !== 'PreInscrito'">
+              <button @click="handleEdit(item.id)" class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900" title="Editar Inscripciones">
+                <LucidePencil class="w-4 h-4" />
+              </button>
+              
+              <button @click="viewDetails(item.id)" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800" title="Ver Detalles">
+                <LucideEye class="w-4 h-4" />
+              </button>
+              <button @click="handleDelete(item.id)" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800" title="Eliminar">
+                <LucideTrash2 class="w-4 h-4" />
+              </button>
+            </template>
+            <!-- Solo mostrar "Ver Detalles" cuando está PRE_INSCRITO -->
+            <template v-else>
+              <button @click="viewDetails(item.id)" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800" title="Ver Detalles">
+                <LucideEye class="w-4 h-4" />
+              </button>
+              <span class="text-xs text-gray-400 italic">Inscripción confirmada</span>
+            </template>
           </div>
         </template>
       </DataTable>
@@ -175,12 +192,19 @@ import DataTable from '@/components/ui/DataTable.vue';
 import FilterPopover from '@/components/ui/FilterPopover.vue';
 import ParticipantFormModal from '@/modules/championships/components/create/ParticipantFormModal.vue'; 
 
+// --- Props ---
+interface Props {
+  participationStatus?: string;
+}
+
+defineProps<Props>();
+
 // --- Store y Estado ---
 const route = useRoute();
 const championshipStore = useChampionshipStore();
 
-// 💥 CLAVE: Desestructuramos groupInscriptions y updateParticipantInscription
-const { fetchParticipants, deleteParticipant, createParticipant, updateParticipantInscription, groupInscriptions } = useChampionshipStore() as any; 
+// 💥 CLAVE: Desestructuramos updateParticipantInscription (removemos groupInscriptions no usado)
+const { fetchParticipants, deleteParticipant, createParticipant, updateParticipantInscription } = useChampionshipStore() as any; 
 
 const { 
   championshipParticipants, 
@@ -191,6 +215,12 @@ const {
 } = storeToRefs(championshipStore);
 
 const championshipId = computed(() => Number(route.params.id));
+
+// 👤 Obtener rol y academyId del usuario logueado
+const userRole = ref<string | null>(localStorage.getItem("userRole"));
+const userAcademyId = ref<number | null>(
+  localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : null
+);
 
 // --- Estado del Modal y Edición ---
 const isModalOpen = ref(false);
@@ -240,11 +270,20 @@ const fetchData = (page: number) => {
         championshipId: championshipId.value,
         categoryId: filters.value.categoryId !== 'all' ? filters.value.categoryId : undefined,
     };
+    
+    // 🆕 Solo los entrenadores filtran por su academia
+    if (userRole.value === "Entrenador" && userAcademyId.value) {
+        params.academyId = userAcademyId.value;
+    }
+    
     fetchParticipants(params);
     
     // 💥 IMPRESIÓN PARA DIAGNÓSTICO
     console.log("--- DEBUG TABLA DATOS ---");
+    console.log("Rol del usuario:", userRole.value);
+    console.log("Academy ID:", userAcademyId.value);
     console.log("Datos de la tabla (championshipParticipants):", championshipParticipants.value);
+    console.log("Parámetros enviados:", params);
     console.log("-------------------------");
 };
 

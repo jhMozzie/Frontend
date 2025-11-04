@@ -125,6 +125,7 @@
     LucideEye,
     LucideEyeOff,
   } from "lucide-vue-next"
+  import { AuthService } from "../services/auth.service"
   
   const router = useRouter()
   
@@ -142,15 +143,70 @@
     error.value = ""
     isLoading.value = true
   
-    setTimeout(() => {
-      if (email.value && password.value) {
-        localStorage.setItem("isAuthenticated", "true")
-        localStorage.setItem("userEmail", email.value)
-        router.push("/")
-      } else {
-        error.value = "Por favor ingresa email y contraseña"
+    try {
+      const response = await AuthService.login({
+        email: email.value,
+        password: password.value
+      })
+      
+      console.log('✅ Login exitoso - Respuesta COMPLETA:', JSON.stringify(response, null, 2))
+      console.log('📋 Datos del usuario:', {
+        id: response.user.id,
+        email: response.user.email,
+        username: response.user.username,
+        role: response.user.role,
+        academyId: response.user.academyId,
+        tieneAcademyId: 'academyId' in response.user
+      })
+      
+      // Verificar que la respuesta tenga la estructura correcta
+      if (!response || !response.user || !response.user.role) {
+        throw new Error('Respuesta del servidor inválida')
       }
+      
+      console.log('🔍 Verificando datos antes de guardar:', {
+        hasResponse: !!response,
+        hasUser: !!response.user,
+        hasRole: !!response.user.role,
+        roleValue: response.user.role,
+        roleType: typeof response.user.role
+      })
+      
+      // Guardar autenticación
+      localStorage.setItem("isAuthenticated", "true")
+      localStorage.setItem("userEmail", response.user.email)
+      localStorage.setItem("userRole", response.user.role) // ← Es un string: "Administrador" o "Entrenador"
+      localStorage.setItem("userId", String(response.user.id))
+      localStorage.setItem("username", response.user.username)
+      
+      // 🆕 Guardar academyId si es entrenador
+      if (response.user.academyId) {
+        localStorage.setItem("academyId", String(response.user.academyId))
+      }
+      
+      // Verificar inmediatamente después de guardar
+      const savedRole = localStorage.getItem("userRole")
+      console.log('✅ Sesión guardada:', {
+        email: response.user.email,
+        username: response.user.username,
+        role: response.user.role,
+        userId: response.user.id,
+        academyId: response.user.academyId,
+        savedRoleInLocalStorage: savedRole,
+        savedRoleType: typeof savedRole
+      })
+      
+      if (!savedRole || savedRole === "undefined" || savedRole === "null") {
+        throw new Error('Error al guardar el rol en localStorage')
+      }
+      
+      // Redireccionar al dashboard
+      router.push("/")
+    } catch (err: any) {
+      console.error('❌ Error de login:', err)
+      error.value = err.response?.data?.message || err.message || "Email o contraseña incorrectos"
+    } finally {
       isLoading.value = false
-    }, 1000)
+    }
   }
   </script>

@@ -11,6 +11,33 @@ export interface MatchParticipant {
 }
 
 /**
+ * Define la categoría del campeonato con información de modalidad
+ */
+export interface ChampionshipCategoryInMatch {
+  id: number;
+  code: string;
+  modality: 'Kumite' | 'Kata'; // Tipo de competencia
+  gender: string;
+  weight: string | null;
+  beltMin: {
+    id: number;
+    name: string;
+    kyuLevel: number;
+  };
+  beltMax: {
+    id: number;
+    name: string;
+    kyuLevel: number;
+  };
+  ageRange: {
+    id: number;
+    label: string;
+    minAge: number;
+    maxAge: number;
+  };
+}
+
+/**
  * Define la estructura de un Match (combate) como la recibe el frontend.
  */
 export interface Match {
@@ -27,8 +54,9 @@ export interface Match {
     nextMatchId: number | null;
     nextMatchSide: 'Akka' | 'Ao' | null;
 
-    // 💥 CORRECCIONES CLAVE: AÑADIR RELACIONES
-    phase: { // <--- Añadir la relación Phase
+    // Relaciones
+    championshipCategory: ChampionshipCategoryInMatch; // Información de la categoría con modalidad
+    phase: {
       description: string;
       order: number;
     };

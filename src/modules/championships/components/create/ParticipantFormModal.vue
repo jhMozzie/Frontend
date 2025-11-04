@@ -136,7 +136,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { LucideX, LucideLoader2, LucideSearch, LucideUsers } from 'lucide-vue-next';
+import { LucideX, LucideLoader2, LucideSearch } from 'lucide-vue-next';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import { storeToRefs } from 'pinia';
 import { debounce } from 'lodash'; 
@@ -144,7 +144,11 @@ import type { Inscription } from '@/modules/championships/types/participants.typ
 import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
 
 // --- TIPOS ASUMIDOS PARA ESTUDIANTES ---
-type StudentSearchResult = { id: number, name: string };
+type StudentSearchResult = { 
+  id: number; 
+  name: string;
+  academyId?: number; // 🆕 Incluir academyId para filtrado
+};
 
 // --- DEFINICIÓN DE PROPS y EMITS ---
 const props = defineProps<{
@@ -256,8 +260,24 @@ const unselectCategory = (categoryId: number) => {
 
 
 // --- LÓGICA DE ESTUDIANTES (BÚSQUEDA REAL DE API) ---
+// 🆕 Obtener academyId y role del localStorage
+const userRole = ref<string | null>(localStorage.getItem("userRole"));
+const userAcademyId = ref<number | null>(
+  localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : null
+);
+
 const filteredStudents = computed<StudentSearchResult[]>(() => {
     if (studentSearchQuery.value.length < 3 || studentsLoading.value) return [];
+    
+    // 🆕 FILTRAR por academia si el usuario es Entrenador
+    if (userRole.value === "Entrenador" && userAcademyId.value) {
+        // Solo mostrar estudiantes de la academia del entrenador
+        return (studentsResults.value || []).filter((student: any) => 
+            student.academyId === userAcademyId.value
+        );
+    }
+    
+    // Los administradores ven todos los estudiantes
     return studentsResults.value || [];
 });
 
@@ -319,7 +339,6 @@ const handleClose = () => {
 };
 
 const handleSave = () => {
-  const isCreation = !isEditing.value;
   const currentCategoryIds = props.initialInscriptions?.map(inv => inv.categoryId) || [];
   const newCategoryIds = selectedCategoryIds.value;
 

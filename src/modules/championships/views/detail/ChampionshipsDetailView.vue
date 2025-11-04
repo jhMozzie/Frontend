@@ -15,11 +15,81 @@
           <div class="h-4 bg-gray-200 rounded w-1/2"></div>
         </div>
         <div v-else-if="championshipData" class="flex items-start justify-between">
-          <div>
+          <!-- Título y descripción -->
+          <div class="flex-1">
             <h1 class="text-3xl font-bold text-gray-900">{{ championshipData.name }}</h1>
-            <p class="mt-1 text-sm text-gray-500">Información general del campeonato</p>
+            <p class="mt-3 text-sm text-gray-500">Información general del campeonato</p>
           </div>
-          <ParticipateButton :status="registrationStatus" @click="handleParticipate" />
+          
+          <!-- Botones de acción (derecha) -->
+          <div class="flex items-center gap-4 ml-8">
+            <!-- Badge estado (solo cuando está participando o pre-inscrito) -->
+            <div 
+              v-if="participation?.status && participation.status !== ParticipationStatus.PARTICIPAR" 
+              class="flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border"
+              :class="participation.status === ParticipationStatus.PARTICIPANDO 
+                ? 'bg-amber-50 border-amber-200' 
+                : participation.status === ParticipationStatus.PRE_INSCRITO
+                ? 'bg-blue-50 border-blue-200'
+                : 'bg-green-50 border-green-200'"
+            >
+              <LucideUsers 
+                class="w-4 h-4" 
+                :class="participation.status === ParticipationStatus.PARTICIPANDO 
+                  ? 'text-amber-600' 
+                  : participation.status === ParticipationStatus.PRE_INSCRITO
+                  ? 'text-blue-600'
+                  : 'text-green-600'"
+              />
+              <span 
+                :class="participation.status === ParticipationStatus.PARTICIPANDO 
+                  ? 'text-amber-800' 
+                  : participation.status === ParticipationStatus.PRE_INSCRITO
+                  ? 'text-blue-800'
+                  : 'text-green-800'"
+              >
+                {{ participation.status === ParticipationStatus.PARTICIPANDO ? 'Participando' 
+                  : participation.status === ParticipationStatus.PRE_INSCRITO ? 'Pre-inscrito'
+                  : 'Confirmado' }}
+              </span>
+            </div>
+            
+            <!-- FLUJO DE BOTONES: Participar → Confirmar Inscripciones → Pre-inscrito -->
+            
+            <!-- 1. Botón "Participar" - Solo si NO existe participación -->
+            <button
+              v-if="!participation"
+              @click="handleParticipate"
+              :disabled="participationLoading"
+              class="px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md whitespace-nowrap"
+              :class="participationLoading 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-amber-500 hover:bg-amber-600 text-white'"
+            >
+              <LucideUserPlus class="w-5 h-5" />
+              {{ participationLoading ? 'Cargando...' : 'Participar' }}
+            </button>
+            
+            <!-- 2. Botón "Confirmar Inscripciones" - Estado PARTICIPANDO (clicable) -->
+            <button
+              v-else-if="participation.status === ParticipationStatus.PARTICIPANDO"
+              @click="showConfirmDialog = true"
+              class="px-6 py-2.5 rounded-lg font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg whitespace-nowrap"
+            >
+              <LucideCheckCircle class="w-5 h-5" />
+              Confirmar Inscripciones
+            </button>
+            
+            <!-- 3. Botón "Pre-inscrito" - Estado PRE_INSCRITO (NO clicable) -->
+            <button
+              v-else-if="participation.status === ParticipationStatus.PRE_INSCRITO"
+              disabled
+              class="px-6 py-2.5 rounded-lg font-semibold bg-blue-500 text-white cursor-not-allowed opacity-90 flex items-center gap-2 shadow-md whitespace-nowrap"
+            >
+              <LucideClock class="w-5 h-5" />
+              Pre-inscrito
+            </button>
+          </div>
         </div>
         <div v-else-if="error" class="text-red-500 font-medium">Error al cargar: {{ error }}</div>
         <div v-else class="text-gray-500">Campeonato no encontrado.</div>
@@ -28,8 +98,17 @@
 
     <ChampionshipsNavbar
       class="mt-6"
-      :championship-id="championshipId"
-      :is-registration-active="registrationStatus !== 'none'"
+      :championship-id="String(championshipId)"
+      :is-registration-active="isParticipating"
+    />
+
+    <!-- Alerta de Modo Inscripción -->
+    <RegistrationModeAlert 
+      v-if="isParticipating"
+      :draft-count="draftParticipants.length"
+      :total-participants="participantsMeta.total || 0"
+      :participation-status="participation?.status"
+      class="mt-6"
     />
 
     <div class="flex-1 pt-6">
@@ -44,45 +123,112 @@
         <div v-else-if="!championshipData" class="text-center py-10 text-gray-500">
           No hay información disponible para este campeonato.
         </div>
-        <component v-else :is="Component" :championship-data="championshipData" />
+        <component 
+          v-else 
+          :is="Component" 
+          :championship-data="championshipData"
+          :is-participating="isParticipating"
+          :participation-status="participation?.status"
+          @add-participant="handleAddParticipant"
+        />
       </RouterView>
     </div>
 
+    <!-- Dialog de Confirmación -->
+    <ConfirmRegistrationDialog 
+      v-model:open="showConfirmDialog"
+      :participants="draftParticipants"
+      :draft-count="draftParticipants.length"
+      @confirm="handleConfirmRegistrations"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, RouterLink, RouterView } from 'vue-router'; // Importamos RouterView y RouterLink
+import { useRoute, RouterLink, RouterView } from 'vue-router';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import { storeToRefs } from 'pinia';
 import type { Championship } from '@/modules/championships/types/championships.types';
-import { LucideLoader2, LucideAlertTriangle, LucideArrowLeft } from 'lucide-vue-next';
+import { 
+  LucideLoader2, 
+  LucideAlertTriangle, 
+  LucideArrowLeft,
+  LucideCheckCircle,
+  LucideUsers,
+  LucideUserPlus,
+  LucideClock
+} from 'lucide-vue-next';
 import ChampionshipsNavbar from '@/modules/championships/components/ChampionshipsNavbar.vue';
-import ParticipateButton from '@/modules/championships/components/ChampionshipsParticipateButton.vue'; // Asegúrate que el nombre/ruta sea correcto
+import ConfirmRegistrationDialog from '@/modules/championships/components/ConfirmRegistrationDialog.vue';
+import RegistrationModeAlert from '@/modules/championships/components/RegistrationModeAlert.vue';
+import { academyChampionshipService } from '@/modules/academies/services/academy-championships.service';
+import { ParticipationStatus, type ParticipationResponse } from '@/modules/academies/types/academy-championships.types';
+
+// --- Tipos ---
+interface DraftParticipant {
+  id: number;
+  name: string;
+  category: string;
+}
 
 // --- Store y Estado ---
 const championshipStore = useChampionshipStore();
-const { loading, error } = storeToRefs(championshipStore);
+const { loading, error, participantsMeta } = storeToRefs(championshipStore);
 const { fetchChampionshipById } = championshipStore;
 
-type RegistrationStatus = "none" | "preRegistered" | "registered";
-const registrationStatus = ref<RegistrationStatus>("none");
+// 🆕 Estado de participación desde el backend
+const participation = ref<ParticipationResponse | null>(null);
+const participationLoading = ref(false);
+
+const showConfirmDialog = ref(false);
+const draftParticipants = ref<DraftParticipant[]>([]);
 
 const route = useRoute();
-const championshipId = computed(() => route.params.id as string);
-const championshipData = ref<Championship | null>(null); // Datos cargados
+const championshipId = computed(() => Number(route.params.id));
+const championshipData = ref<Championship | null>(null);
 
-// --- Fetch de Datos (Se hace aquí, en el layout padre) ---
+// 👤 Obtener academyId del usuario logueado
+const userAcademyId = ref<number | null>(
+  localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : null
+);
+
+// --- Computed ---
+// isParticipating: true cuando está en PARTICIPANDO o PRE_INSCRITO (ambos estados muestran la alerta y el modo inscripción)
+const isParticipating = computed(() => 
+  participation.value?.status === ParticipationStatus.PARTICIPANDO ||
+  participation.value?.status === ParticipationStatus.PRE_INSCRITO
+);
+
+// --- Fetch de Datos ---
+const fetchParticipation = async () => {
+  if (!userAcademyId.value || !championshipId.value) return;
+  
+  participationLoading.value = true;
+  try {
+    const data = await academyChampionshipService.getParticipation(
+      userAcademyId.value,
+      championshipId.value
+    );
+    participation.value = data;
+  } catch (err) {
+    console.error('Error al obtener participación:', err);
+  } finally {
+    participationLoading.value = false;
+  }
+};
+
 onMounted(async () => {
-  const idAsNumber = Number(championshipId.value);
-  if (!isNaN(idAsNumber)) {
+  if (!isNaN(championshipId.value)) {
     loading.value = true;
     error.value = null;
     try {
-      const data = await fetchChampionshipById(idAsNumber);
+      const data = await fetchChampionshipById(championshipId.value);
       championshipData.value = data ?? null;
       if (!data) error.value = "Campeonato no encontrado.";
+      
+      // 🆕 Obtener estado de participación
+      await fetchParticipation();
     } catch (err: any) {
        console.error("Error fetching championship details:", err);
        if (!error.value) error.value = "No se pudieron cargar los detalles.";
@@ -96,14 +242,61 @@ onMounted(async () => {
 });
 
 // --- Handlers ---
-const handleParticipate = () => {
-  if (registrationStatus.value === "none") {
-    registrationStatus.value = "preRegistered";
-  } else if (registrationStatus.value === "preRegistered") {
-    registrationStatus.value = "registered";
+const handleParticipate = async () => {
+  if (!userAcademyId.value) {
+    alert('❌ No se encontró tu academia. Por favor, inicia sesión nuevamente.');
+    return;
+  }
+
+  participationLoading.value = true;
+  try {
+    // Crear participación con estado PARTICIPANDO
+    const newParticipation = await academyChampionshipService.createParticipation({
+      academyId: userAcademyId.value,
+      championshipId: championshipId.value,
+      status: ParticipationStatus.PARTICIPANDO
+    });
+    
+    participation.value = newParticipation;
+    
+    // Datos de ejemplo - reemplazar con lógica real
+    draftParticipants.value = [
+      { id: 1, name: 'Juan Pérez', category: 'Senior Masculino -75kg' },
+      { id: 2, name: 'María García', category: 'Senior Femenino -61kg' }
+    ];
+  } catch (err: any) {
+    console.error('Error al iniciar participación:', err);
+    alert('❌ Error al iniciar participación');
+  } finally {
+    participationLoading.value = false;
   }
 };
 
-// (No necesitamos formatDate ni datos hardcodeados aquí)
+const handleAddParticipant = (participant: DraftParticipant) => {
+  draftParticipants.value.push(participant);
+};
 
+const handleConfirmRegistrations = async () => {
+  if (!userAcademyId.value) {
+    alert('❌ No se encontró tu academia.');
+    return;
+  }
+
+  try {
+    // Avanzar al siguiente estado (PARTICIPANDO → PRE_INSCRITO)
+    const response = await academyChampionshipService.advanceStatus(
+      userAcademyId.value,
+      championshipId.value
+    );
+    
+    console.log('✅ Estado avanzado:', response);
+    participation.value = response.participation;
+    draftParticipants.value = [];
+    
+    alert(`✅ ${response.message || 'Inscripciones confirmadas exitosamente'}`);
+  } catch (err: any) {
+    console.error('Error al confirmar inscripciones:', err);
+    alert(`❌ ${err.response?.data?.message || 'Error al confirmar inscripciones'}`);
+  }
+};
 </script>

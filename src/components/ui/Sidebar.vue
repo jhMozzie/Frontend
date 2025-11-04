@@ -48,11 +48,11 @@
     <footer class="border-t border-neutral-800 p-4 space-y-3">
       <div class="flex items-center gap-3 rounded-lg bg-red-800/50 px-3 py-2">
         <div class="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
-          AD
+          {{ getUserInitials() }}
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium truncate">Admin User</p>
-          <p class="text-xs text-gray-400 truncate">admin@karate.com</p>
+          <p class="text-sm font-medium truncate">{{ userRole || 'Usuario' }}</p>
+          <p class="text-xs text-gray-400 truncate">{{ userEmail }}</p>
         </div>
       </div>
 
@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue"
+import { ref, computed } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import {
   LucideHome,
@@ -77,30 +77,72 @@ import {
   LucideBuilding2,
   LucideUsers,
   LucideUserCircle,
+  LucideLogOut,
 } from "lucide-vue-next"
 
 const props = defineProps<{ isOpen: boolean; toggleSidebar: () => void }>()
 
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LucideHome },
-  { name: "Campeonatos", href: "/championships", icon: LucideTrophy },
-  { name: "Academias", href: "/academies", icon: LucideBuilding2 },
-  { name: "Estudiantes", href: "/students", icon: LucideUsers },
-  { name: "Usuarios", href: "/users", icon: LucideUserCircle },
+// Obtener el rol del usuario desde localStorage
+const userRole = ref(localStorage.getItem("userRole") || "")
+const userEmail = ref(localStorage.getItem("userEmail") || "")
+
+// Obtener iniciales del usuario
+const getUserInitials = () => {
+  const email = userEmail.value
+  if (!email) return "U"
+  
+  const namePart = email.split("@")[0]
+  if (!namePart) return "U"
+  
+  return namePart.substring(0, 2).toUpperCase()
+}
+
+// Menú de navegación completo con permisos
+const allNavigation = [
+  { 
+    name: "Dashboard", 
+    href: "/", 
+    icon: LucideHome,
+    roles: ['Administrador', 'Entrenador'] // Ambos pueden ver
+  },
+  { 
+    name: "Campeonatos", 
+    href: "/championships", 
+    icon: LucideTrophy,
+    roles: ['Administrador', 'Entrenador'] // Ambos pueden ver
+  },
+  { 
+    name: "Estudiantes", 
+    href: "/students", 
+    icon: LucideUsers,
+    roles: ['Administrador', 'Entrenador'] // Ambos pueden ver
+  },
+  { 
+    name: "Academias", 
+    href: "/academies", 
+    icon: LucideBuilding2,
+    roles: ['Administrador'] // Solo administrador
+  },
+  { 
+    name: "Usuarios", 
+    href: "/users", 
+    icon: LucideUserCircle,
+    roles: ['Administrador'] // Solo administrador
+  },
 ]
+
+// Filtrar navegación según el rol del usuario
+const navigation = computed(() => {
+  return allNavigation.filter(item => 
+    item.roles.includes(userRole.value)
+  )
+})
 
 const router = useRouter()
 const route = useRoute()
 
 const isActive = (href: string) =>
   route.path === href || (href !== "/" && route.path.startsWith(href))
-
-const handleLogout = () => {
-  if (confirm("¿Estás seguro que deseas cerrar sesión?")) {
-    alert("Sesión cerrada exitosamente")
-  }
-}
-
 
 const logout = async () => {
   const confirmLogout = confirm("¿Estás seguro que deseas cerrar sesión?")
@@ -109,6 +151,10 @@ const logout = async () => {
   // 🔹 Limpiar sesión
   localStorage.removeItem("isAuthenticated")
   localStorage.removeItem("userEmail")
+  localStorage.removeItem("userRole")
+  localStorage.removeItem("userRoleId")
+  localStorage.removeItem("token")
+  localStorage.removeItem("user")
 
   // 🔹 Redirigir al login
   await router.push("/login")

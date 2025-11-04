@@ -5,7 +5,12 @@
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Estudiantes</h1>
         <p class="text-gray-500 mt-1">
-          Gestiona los estudiantes registrados en las academias
+          <template v-if="userRole === 'Entrenador'">
+            Gestiona los estudiantes de tu academia
+          </template>
+          <template v-else>
+            Gestiona los estudiantes registrados en las academias
+          </template>
         </p>
       </div>
       <button
@@ -152,8 +157,34 @@ const studentStore = useStudentStore()
 const { students, meta } = storeToRefs(studentStore)
 const { fetchStudents, deleteStudent } = studentStore
 
-// 🔄 Cargar al montar
-onMounted(() => fetchStudents(1, 10))
+// 👤 Obtener rol y academyId del usuario actual
+const userRole = ref<string | null>(localStorage.getItem("userRole"))
+const userAcademyId = ref<number | null>(
+  localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : null
+)
+
+// � Debug: Ver qué valores tenemos
+console.log("🔍 StudentsView - Estado de autenticación:", {
+  userRole: userRole.value,
+  userAcademyId: userAcademyId.value,
+  academyIdRaw: localStorage.getItem("academyId"),
+  user: localStorage.getItem("user"),
+})
+
+// �🔄 Cargar al montar (filtra por academia si es entrenador)
+onMounted(() => {
+  console.log("🔄 Montando StudentsView...")
+  if (userRole.value === "Entrenador" && userAcademyId.value) {
+    console.log(`✅ Filtrando por academyId: ${userAcademyId.value}`)
+    fetchStudents(1, 10, userAcademyId.value)
+  } else {
+    console.log("⚠️ No se aplica filtro de academia:", {
+      esEntrenador: userRole.value === "Entrenador",
+      tieneAcademyId: !!userAcademyId.value
+    })
+    fetchStudents(1, 10)
+  }
+})
 
 // 🔍 Búsqueda en tabla
 const q = ref("")
@@ -175,7 +206,13 @@ const filtered = computed(() => {
 })
 
 // 📄 Paginación
-const goToPage = (page: number) => fetchStudents(page, meta.value.limit)
+const goToPage = (page: number) => {
+  if (userRole.value === "Entrenador" && userAcademyId.value) {
+    fetchStudents(page, meta.value.limit, userAcademyId.value)
+  } else {
+    fetchStudents(page, meta.value.limit)
+  }
+}
 
 // 🧱 Modal
 const isDialogOpen = ref(false)
@@ -192,7 +229,11 @@ const openEdit = (student: Student) => {
 }
 
 const handleSaved = async () => {
-  await fetchStudents(meta.value.page, meta.value.limit)
+  if (userRole.value === "Entrenador" && userAcademyId.value) {
+    await fetchStudents(meta.value.page, meta.value.limit, userAcademyId.value)
+  } else {
+    await fetchStudents(meta.value.page, meta.value.limit)
+  }
   isDialogOpen.value = false
 }
 

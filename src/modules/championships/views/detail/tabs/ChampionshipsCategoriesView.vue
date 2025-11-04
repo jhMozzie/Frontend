@@ -45,7 +45,8 @@
       </div>
     </div>
 
-    <div class="flex items-center justify-start gap-4 mb-6">
+    <!-- Botones de Generación de Brackets - Solo para Administradores -->
+    <div v-if="userRole !== 'Entrenador'" class="flex items-center justify-start gap-4 mb-6">
        <button 
            @click="handleGenerateBrackets"
            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none bg-red-600 text-white hover:bg-red-700"
@@ -126,7 +127,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
@@ -135,12 +136,10 @@ import { LucideSearch, LucideFilter, LucideX, ChevronLeft, ChevronRight, Chevron
 
 // --- Store y Estado ---
 const route = useRoute();
-const router = useRouter();
 const championshipStore = useChampionshipStore();
 
 const { 
   championshipCategories, 
-  categoriesMeta, 
   categoriesLoading: loading, 
   categoriesError: error     
 } = storeToRefs(championshipStore);
@@ -149,6 +148,9 @@ const {
 const { fetchChampionshipCategories, generateBrackets, exportBracketsPdf } = championshipStore as any; 
 
 const championshipId = computed(() => Number(route.params.id));
+
+// 👤 Obtener rol del usuario logueado
+const userRole = ref<string | null>(localStorage.getItem("userRole"));
 
 // --- Estado de Filtros y Paginación ---
 const searchTerm = ref('');

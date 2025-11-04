@@ -1,56 +1,52 @@
 <template>
   <button
     @click="$emit('click')"
-    :disabled="buttonConfig.disabled"
     :class="[
-      'inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2 text-base font-semibold text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
-      // Clases dinámicas basadas en la prop 'status'
-      status === 'none' && 'bg-[#DC2626] hover:bg-[#B91C1C] focus:ring-[#DC2626]', // Rojo
-      status === 'preRegistered' && 'bg-[#F59E0B] hover:bg-[#D97706] focus:ring-[#F59E0B]', // Ámbar
-      status === 'registered' && 'bg-[#10B981] hover:bg-[#059669] focus:ring-[#10B981]', // Verde
-      'disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:bg-opacity-100',
+      'px-6 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2',
+      buttonClasses
     ]"
   >
-    <component :is="buttonConfig.iconComponent" class="h-5 w-5" />
-    <span>{{ buttonConfig.label }}</span>
+    <LucideUserPlus class="w-5 h-5" />
+    {{ buttonText }}
   </button>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Component } from 'vue'
-import { UserPlus, Clock, CheckCircle2 } from 'lucide-vue-next'
+import { computed } from 'vue';
+import { LucideUserPlus } from 'lucide-vue-next';
 
-// Definimos el tipo para el estado (puede ser exportado desde types si se usa en más sitios)
 type RegistrationStatus = "none" | "preRegistered" | "registered";
 
-// 1. Definimos las props que el componente recibe
-const props = defineProps<{
-  status: RegistrationStatus // Recibe el estado actual
-}>()
+interface Props {
+  status: RegistrationStatus;
+}
 
-// 2. Definimos los eventos que emite (solo 'click')
-const emit = defineEmits(['click'])
+const props = defineProps<Props>();
+defineEmits<{ click: [] }>();
 
-// 3. Mapeo de iconos (igual que antes, pero local al botón)
-
-const iconComponents: Record<string, Component> = {
-  UserPlus: UserPlus,
-  Clock: Clock,
-  CheckCircle2: CheckCircle2,
-};
-
-// 4. Configuración del botón basada en props.status (igual que antes)
-const buttonConfig = computed(() => {
+const buttonText = computed(() => {
   switch (props.status) {
     case "none":
-      return { label: "Participar", iconComponent: iconComponents['UserPlus'], disabled: false };
+      return "Participar";
     case "preRegistered":
-      return { label: "Pre Inscrito", iconComponent: iconComponents['Clock'], disabled: false };
+      return "Inscribiendo";
     case "registered":
-      return { label: "Inscrito", iconComponent: iconComponents['CheckCircle2'], disabled: true };
+      return "Inscrito";
     default:
-      return { label: "...", iconComponent: iconComponents['UserPlus'], disabled: true };
+      return "Participar";
+  }
+});
+
+const buttonClasses = computed(() => {
+  switch (props.status) {
+    case "none":
+      return "bg-red-600 hover:bg-red-700 text-white";
+    case "preRegistered":
+      return "bg-amber-500 hover:bg-amber-600 text-white";
+    case "registered":
+      return "bg-green-600 hover:bg-green-700 text-white cursor-default";
+    default:
+      return "bg-red-600 hover:bg-red-700 text-white";
   }
 });
 </script>

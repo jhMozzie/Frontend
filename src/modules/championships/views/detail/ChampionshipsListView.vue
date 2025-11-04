@@ -8,7 +8,9 @@
             Gestiona todos los campeonatos y torneos
           </p>
         </div>
+        <!-- Botón solo visible para Administrador -->
         <RouterLink
+          v-if="isAdmin"
           :to="{ name: 'championships-create' }"
           class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
         >
@@ -187,22 +189,31 @@
               </div>
 
               <div class="flex gap-2 mt-4 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  @click.prevent.stop="handleEdit(champ.id)"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3 flex-1 gap-2 border border-gray-300 bg-white hover:bg-gray-50"
-                >
-                  <LucidePencil class="w-4 h-4" />
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  @click.prevent.stop="handleDelete(champ.id)"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3 flex-1 gap-2 border border-gray-300 bg-white hover:bg-gray-50 text-red-600 hover:text-red-700"
-                >
-                  <LucideTrash2 class="w-4 h-4" />
-                  Eliminar
-                </button>
+                <!-- Botones solo visibles para Administrador -->
+                <template v-if="isAdmin">
+                  <button
+                    type="button"
+                    @click.prevent.stop="handleEdit(champ.id)"
+                    class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3 flex-1 gap-2 border border-gray-300 bg-white hover:bg-gray-50"
+                  >
+                    <LucidePencil class="w-4 h-4" />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    @click.prevent.stop="handleDelete(champ.id)"
+                    class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors h-9 px-3 flex-1 gap-2 border border-gray-300 bg-white hover:bg-gray-50 text-red-600 hover:text-red-700"
+                  >
+                    <LucideTrash2 class="w-4 h-4" />
+                    Eliminar
+                  </button>
+                </template>
+                
+                <!-- Mensaje para entrenadores -->
+                <div v-else class="text-xs text-gray-500 text-center py-2 w-full">
+                  <LucideEye class="w-4 h-4 inline-block mr-1" />
+                  Ver detalles
+                </div>
               </div>
             </div>
           </RouterLink>
@@ -242,6 +253,7 @@ import {
   LucideUsers,
   LucidePencil,
   LucideTrash2,
+  LucideEye, // ← Para mostrar icono de "solo lectura"
 } from "lucide-vue-next"
 
 import Pagination from "@/components/ui/Pagination.vue"
@@ -252,6 +264,10 @@ const { championships, loading, error } = storeToRefs(championshipStore)
 const { fetchChampionships, deleteChampionship } = championshipStore
 
 const router = useRouter()
+
+// --- Verificar si el usuario es administrador ---
+const userRole = ref(localStorage.getItem("userRole") || "")
+const isAdmin = computed(() => userRole.value === "Administrador")
 
 // --- Filtros ---
 const searchQuery = ref("")

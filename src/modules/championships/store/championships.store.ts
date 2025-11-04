@@ -294,9 +294,14 @@ export const useChampionshipStore = defineStore("championships", () => {
     const resp = await studentService.getAll(1, 50) as StudentListResponse;
     const list = resp.data || [];
     const q = query.toLowerCase();
+    // 🆕 Incluir academyId en los resultados para el filtrado por academia
     studentsResults.value = list
       .filter((s: any) => (`${s.firstname} ${s.lastname}`).toLowerCase().includes(q))
-      .map((s: any) => ({ id: s.id, name: `${s.firstname} ${s.lastname}` }));
+      .map((s: any) => ({ 
+        id: s.id, 
+        name: `${s.firstname} ${s.lastname}`,
+        academyId: s.academyId 
+      }));
 
     } catch (err: any) {
         console.error("Error al buscar estudiantes:", err);

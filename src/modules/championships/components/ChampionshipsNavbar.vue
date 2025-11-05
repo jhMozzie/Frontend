@@ -45,6 +45,7 @@ const tabs = computed(() => [
   { name: 'Categorías', href: `/championships/${props.championshipId}/categorias` },
   { name: 'Competidores', href: `/championships/${props.championshipId}/competidores` },
   { name: 'Brackets', href: `/championships/${props.championshipId}/brackets` },
+  { name: 'Medallero', href: `/championships/${props.championshipId}/medallero` },
 ])
 
 // 2. Función para determinar si una pestaña debe estar deshabilitada

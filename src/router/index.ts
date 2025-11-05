@@ -19,6 +19,7 @@ import ChampionshipsInfoView from "@/modules/championships/views/detail/tabs/Cha
 import ChampionshipsCategoriesView from "@/modules/championships/views/detail/tabs/ChampionshipsCategoriesView.vue";
 import ChampionshipsParticipantsView from "@/modules/championships/views/detail/tabs/ChampionshipsParticipantsView.vue";
 import ChampionshipsBracketsView from "@/modules/championships/views/detail/tabs/ChampionshipsBracketsView.vue";
+import ChampionshipsMedalTableView from "@/modules/championships/views/detail/tabs/ChampionshipsMedalTableView.vue";
 
 const routes = [
   { path: "/login", name: "login", component: LoginView, meta: { public: true } },
@@ -83,6 +84,12 @@ const routes = [
             path: "brackets",
             name: "championships-brackets",
             component: ChampionshipsBracketsView,
+            meta: { roles: ['Administrador', 'Entrenador'] }
+          },
+          {
+            path: "medallero",
+            name: "championships-medals",
+            component: ChampionshipsMedalTableView,
             meta: { roles: ['Administrador', 'Entrenador'] }
           },
         ],

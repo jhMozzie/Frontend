@@ -33,12 +33,20 @@ export const matchService = {
 
   /**
    * Actualiza el resultado de un combate.
-   * (Implementación futura para cuando se haga clic en un ganador)
+   * Incluye winnerId y los scores de ambos competidores.
    */
-  async updateMatchResult(matchId: number, winnerId: number) {
-    const { data } = await api.patch(
+  async updateMatchResult(
+    matchId: number, 
+    winnerId: number, 
+    scores?: { scoreAkka: number; scoreAo: number }
+  ) {
+    const { data } = await api.put(
         `/matches/${matchId}/winner`, 
-        { winnerId }
+        { 
+          winnerId,
+          scoreAkka: scores?.scoreAkka,
+          scoreAo: scores?.scoreAo
+        }
     );
     return data;
   }

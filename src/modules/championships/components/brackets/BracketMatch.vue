@@ -20,7 +20,17 @@
         <p class="font-medium text-sm text-gray-900 truncate">{{ match.competitor1?.name || "Pendiente" }}</p>
         <p v-if="match.competitor1?.academy" class="text-xs text-gray-500 truncate">{{ match.competitor1.academy }}</p>
       </div>
-      <span v-if="match.score1 !== null" class="font-bold text-lg">{{ match.score1 }}</span>
+      <!-- DEBUG: Mostrar siempre el score si existe -->
+      <span 
+        v-if="match.score1 !== null && match.score1 !== undefined" 
+        :class="[
+          'font-bold tabular-nums',
+          match.status === 'Completado' ? 'text-2xl' : 'text-sm',
+          match.status === 'Completado' && match.winner === match.competitor1?.id ? 'text-gray-900' : 'text-gray-600'
+        ]"
+      >
+        {{ match.score1 }}
+      </span>
     </div>
     
     <div class="h-px bg-gray-200 my-1.5"></div>
@@ -30,7 +40,17 @@
         <p class="font-medium text-sm text-gray-900 truncate">{{ match.competitor2?.name || "Pendiente" }}</p>
         <p v-if="match.competitor2?.academy" class="text-xs text-gray-500 truncate">{{ match.competitor2.academy }}</p>
       </div>
-      <span v-if="match.score2 !== null" class="font-bold text-lg">{{ match.score2 }}</span>
+      <!-- DEBUG: Mostrar siempre el score si existe -->
+      <span 
+        v-if="match.score2 !== null && match.score2 !== undefined" 
+        :class="[
+          'font-bold tabular-nums',
+          match.status === 'Completado' ? 'text-2xl' : 'text-sm',
+          match.status === 'Completado' && match.winner === match.competitor2?.id ? 'text-gray-900' : 'text-gray-600'
+        ]"
+      >
+        {{ match.score2 }}
+      </span>
     </div>
   </div>
   

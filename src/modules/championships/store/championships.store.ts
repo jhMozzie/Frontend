@@ -369,7 +369,7 @@ export const useChampionshipStore = defineStore("championships", () => {
     scores?: { scoreAkka: number; scoreAo: number }
   ) => {
     try {
-      const result = await matchService.updateMatchResult(matchId, winnerId);
+      const result = await matchService.updateMatchResult(matchId, winnerId, scores);
       
       // Actualizar el match en el estado local
       const matchIndex = matches.value.findIndex(m => m.id === matchId);

@@ -33,7 +33,7 @@
           <div class="flex items-center gap-2 text-sm">
             <LucideUsers class="w-4 h-4 text-blue-700" />
             <span class="font-medium text-blue-900">
-              {{ totalParticipants }} {{ totalParticipants === 1 ? 'participante inscrito' : 'participantes inscritos' }}
+              {{ displayTotal }} {{ displayTotal === 1 ? 'participante inscrito' : 'participantes inscritos' }}
             </span>
           </div>
         </template>
@@ -52,11 +52,11 @@
           <div class="flex items-center gap-2 text-sm">
             <LucideUsers class="w-4 h-4 text-amber-700" />
             <span class="font-medium text-amber-900">
-              {{ totalParticipants }} {{ totalParticipants === 1 ? 'participante inscrito' : 'participantes inscritos' }}
+              {{ displayTotal }} {{ displayTotal === 1 ? 'participante inscrito' : 'participantes inscritos' }}
             </span>
           </div>
 
-          <div v-if="totalParticipants === 0" class="mt-2 text-xs text-amber-700">
+          <div v-if="displayTotal === 0" class="mt-2 text-xs text-amber-700">
             No hay participantes inscritos aún. Comienza agregando estudiantes a las categorías.
           </div>
         </template>
@@ -66,19 +66,62 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { LucideAlertCircle, LucideUsers, LucideCheckCircle } from 'lucide-vue-next';
+import { useChampionshipStore } from '@/modules/championships/store/championships.store';
+import { storeToRefs } from 'pinia';
 
 interface Props {
-  draftCount: number;
+  draftCount?: number;
   totalParticipants?: number;
   participationStatus?: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
+  draftCount: 0,
   totalParticipants: 0,
   participationStatus: 'Participando'
 });
 
 const isVisible = ref(true);
+const route = useRoute();
+
+// Obtener el total de participantes del store
+const championshipStore = useChampionshipStore();
+const { participantsMeta } = storeToRefs(championshipStore);
+const { fetchParticipants } = championshipStore;
+
+// Cargar participantes cuando se monta el componente
+const loadParticipantCount = async () => {
+  const championshipId = Number(route.params.id);
+  const userAcademyId = localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : null;
+  
+  if (!championshipId || !userAcademyId) return;
+  
+  try {
+    await fetchParticipants({
+      championshipId,
+      academyId: userAcademyId,
+      page: 1,
+      limit: 1 // Solo necesitamos el total, no los datos
+    });
+  } catch (error) {
+    console.error('Error cargando contador de participantes:', error);
+  }
+};
+
+// Cargar al montar y cuando cambia el estado de participación
+onMounted(() => {
+  loadParticipantCount();
+});
+
+watch(() => props.participationStatus, () => {
+  loadParticipantCount();
+});
+
+// Usar el total del store o el prop si está disponible
+const displayTotal = computed(() => {
+  return participantsMeta.value.total || props.totalParticipants || 0;
+});
 </script>

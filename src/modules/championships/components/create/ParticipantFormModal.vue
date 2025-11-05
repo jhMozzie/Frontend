@@ -47,7 +47,7 @@
         </div>
         
         <div v-if="selectedCategories.length > 0">
-          <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
              Categorías Seleccionadas <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{{ selectedCategories.length }}</span>
           </label>
           <div class="flex flex-wrap gap-2 p-3 rounded-md border border-red-300 bg-red-50">
@@ -139,9 +139,17 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { LucideX, LucideLoader2, LucideSearch } from 'lucide-vue-next';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import { storeToRefs } from 'pinia';
-import { debounce } from 'lodash'; 
 import type { Inscription } from '@/modules/championships/types/participants.types';
 import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
+
+// 🆕 Función debounce simple (sin lodash)
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return function(this: any, ...args: Parameters<T>) {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
 
 // --- TIPOS ASUMIDOS PARA ESTUDIANTES ---
 type StudentSearchResult = { 
@@ -260,24 +268,12 @@ const unselectCategory = (categoryId: number) => {
 
 
 // --- LÓGICA DE ESTUDIANTES (BÚSQUEDA REAL DE API) ---
-// 🆕 Obtener academyId y role del localStorage
-const userRole = ref<string | null>(localStorage.getItem("userRole"));
-const userAcademyId = ref<number | null>(
-  localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : null
-);
-
 const filteredStudents = computed<StudentSearchResult[]>(() => {
     if (studentSearchQuery.value.length < 3 || studentsLoading.value) return [];
     
-    // 🆕 FILTRAR por academia si el usuario es Entrenador
-    if (userRole.value === "Entrenador" && userAcademyId.value) {
-        // Solo mostrar estudiantes de la academia del entrenador
-        return (studentsResults.value || []).filter((student: any) => 
-            student.academyId === userAcademyId.value
-        );
-    }
+    console.log('🔍 Resultados de búsqueda en modal:', studentsResults.value);
     
-    // Los administradores ven todos los estudiantes
+    // Los resultados ya vienen filtrados por academia desde el backend
     return studentsResults.value || [];
 });
 

@@ -21,24 +21,14 @@
           
           <!-- Encabezados dinámicos según profundidad del bracket -->
           <div class="flex gap-8 mb-6 sticky top-0 bg-white z-10 pb-4">
-            <div v-if="bracketDepth >= 4" class="flex-shrink-0" style="width: 314px;">
+            <div 
+              v-for="(header, index) in roundHeaders" 
+              :key="index" 
+              class="flex-shrink-0" 
+              style="width: 314px;"
+            >
               <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
-                Octavos de Final
-              </div>
-            </div>
-            <div v-if="bracketDepth >= 3" class="flex-shrink-0" style="width: 314px;">
-              <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
-                Cuartos de Final
-              </div>
-            </div>
-            <div v-if="bracketDepth >= 2" class="flex-shrink-0" style="width: 314px;">
-              <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
-                Semifinal
-              </div>
-            </div>
-            <div class="flex-shrink-0" style="width: 314px;">
-              <div class="text-center font-bold text-gray-700 pb-2 border-b-2 border-red-500">
-                Final
+                {{ header }}
               </div>
             </div>
           </div>
@@ -435,10 +425,17 @@ function transformMatchFromAPI(match: Match): MatchTransformed {
 // ⭐ FUNCIÓN PARA CALCULAR LA PROFUNDIDAD NECESARIA DEL BRACKET ⭐
 function calculateBracketDepth(matches: MatchTransformed[]): number {
   const finalMatch = matches.find(m => m.nextMatchId === null);
-  if (!finalMatch) return 1;
+  if (!finalMatch) {
+    console.log('⚠️ No se encontró match final');
+    return 1;
+  }
+  
+  console.log('📊 Final match encontrado:', finalMatch);
   
   function getMaxDepth(matchId: number, currentDepth: number = 1): number {
     const children = matches.filter(m => m.nextMatchId === matchId && m.id > 0); // Solo matches reales
+    
+    console.log(`🌳 Depth ${currentDepth} - Match ID ${matchId} - Children:`, children.length);
     
     if (children.length === 0) {
       return currentDepth;
@@ -448,7 +445,9 @@ function calculateBracketDepth(matches: MatchTransformed[]): number {
     return Math.max(...childDepths);
   }
   
-  return getMaxDepth(finalMatch.id);
+  const depth = getMaxDepth(finalMatch.id);
+  console.log('📏 Profundidad total calculada:', depth);
+  return depth;
 }
 
 // ⭐ FUNCIÓN MEJORADA PARA GENERAR BRACKET COMPLETO CON BYE MATCHES ⭐
@@ -543,6 +542,11 @@ const realMatches = computed(() => {
     ? championshipStore.matches.filter(m => m.championshipCategoryId === selectedCategoryId.value)
     : championshipStore.matches;
   
+  console.log('🔍 DEBUG Brackets - Total matches from store:', championshipStore.matches.length);
+  console.log('🔍 DEBUG Brackets - Selected category:', selectedCategoryId.value);
+  console.log('🔍 DEBUG Brackets - Filtered matches count:', filteredMatches.length);
+  console.log('🔍 DEBUG Brackets - Filtered matches:', filteredMatches);
+  
   return filteredMatches.map(transformMatchFromAPI);
 });
 
@@ -561,6 +565,31 @@ const finalMatch = computed(() => {
 const bracketDepth = computed(() => {
   if (realMatches.value.length === 0) return 1;
   return calculateBracketDepth(realMatches.value);
+});
+
+// ⭐ FUNCIÓN PARA GENERAR NOMBRES DE RONDAS DINÁMICAMENTE ⭐
+function getRoundName(depth: number, currentRound: number): string {
+  const roundsFromFinal = depth - currentRound;
+  
+  switch (roundsFromFinal) {
+    case 0: return 'Final';
+    case 1: return 'Semifinal';
+    case 2: return 'Cuartos de Final';
+    case 3: return 'Octavos de Final';
+    case 4: return 'Dieciseisavos de Final';
+    case 5: return 'Treintaidosavos de Final';
+    case 6: return 'Sesentaicuatroavos de Final';
+    default: return `Ronda ${currentRound}`;
+  }
+}
+
+// Generar array de nombres de rondas desde la primera hasta la final
+const roundHeaders = computed(() => {
+  const headers: string[] = [];
+  for (let i = 1; i <= bracketDepth.value; i++) {
+    headers.push(getRoundName(bracketDepth.value, i));
+  }
+  return headers;
 });
 
 // Determinar ganador en modo Kumite

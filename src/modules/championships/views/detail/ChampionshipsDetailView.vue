@@ -21,8 +21,8 @@
             <p class="mt-3 text-sm text-gray-500">Información general del campeonato</p>
           </div>
           
-          <!-- Botones de acción (derecha) -->
-          <div class="flex items-center gap-4 ml-8">
+          <!-- Botones de acción (derecha) - Solo para Entrenadores -->
+          <div v-if="userRole === 'Entrenador'" class="flex items-center gap-4 ml-8">
             <!-- Badge estado (solo cuando está participando o pre-inscrito) -->
             <div 
               v-if="participation?.status && participation.status !== ParticipationStatus.PARTICIPAR" 
@@ -99,14 +99,12 @@
     <ChampionshipsNavbar
       class="mt-6"
       :championship-id="String(championshipId)"
-      :is-registration-active="isParticipating"
+      :is-registration-active="isNavbarActive"
     />
 
-    <!-- Alerta de Modo Inscripción -->
+    <!-- Alerta de Modo Inscripción - Solo para Entrenadores -->
     <RegistrationModeAlert 
-      v-if="isParticipating"
-      :draft-count="draftParticipants.length"
-      :total-participants="participantsMeta.total || 0"
+      v-if="isParticipating && userRole === 'Entrenador'"
       :participation-status="participation?.status"
       class="mt-6"
     />
@@ -129,16 +127,14 @@
           :championship-data="championshipData"
           :is-participating="isParticipating"
           :participation-status="participation?.status"
-          @add-participant="handleAddParticipant"
         />
       </RouterView>
     </div>
 
-    <!-- Dialog de Confirmación -->
+    <!-- Dialog de Confirmación - Solo para Entrenadores -->
     <ConfirmRegistrationDialog 
+      v-if="userRole === 'Entrenador'"
       v-model:open="showConfirmDialog"
-      :participants="draftParticipants"
-      :draft-count="draftParticipants.length"
       @confirm="handleConfirmRegistrations"
     />
   </div>
@@ -165,16 +161,9 @@ import RegistrationModeAlert from '@/modules/championships/components/Registrati
 import { academyChampionshipService } from '@/modules/academies/services/academy-championships.service';
 import { ParticipationStatus, type ParticipationResponse } from '@/modules/academies/types/academy-championships.types';
 
-// --- Tipos ---
-interface DraftParticipant {
-  id: number;
-  name: string;
-  category: string;
-}
-
 // --- Store y Estado ---
 const championshipStore = useChampionshipStore();
-const { loading, error, participantsMeta } = storeToRefs(championshipStore);
+const { loading, error } = storeToRefs(championshipStore);
 const { fetchChampionshipById } = championshipStore;
 
 // 🆕 Estado de participación desde el backend
@@ -182,13 +171,13 @@ const participation = ref<ParticipationResponse | null>(null);
 const participationLoading = ref(false);
 
 const showConfirmDialog = ref(false);
-const draftParticipants = ref<DraftParticipant[]>([]);
 
 const route = useRoute();
 const championshipId = computed(() => Number(route.params.id));
 const championshipData = ref<Championship | null>(null);
 
-// 👤 Obtener academyId del usuario logueado
+// 👤 Obtener rol y academyId del usuario logueado
+const userRole = ref<string | null>(localStorage.getItem("userRole"));
 const userAcademyId = ref<number | null>(
   localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : null
 );
@@ -200,19 +189,43 @@ const isParticipating = computed(() =>
   participation.value?.status === ParticipationStatus.PRE_INSCRITO
 );
 
+// Navbar activo: siempre para admin, condicional para entrenador
+const isNavbarActive = computed(() => {
+  if (userRole.value === 'Administrador') return true;
+  return isParticipating.value;
+});
+
 // --- Fetch de Datos ---
 const fetchParticipation = async () => {
+  // Solo para entrenadores
+  if (userRole.value !== 'Entrenador') return;
   if (!userAcademyId.value || !championshipId.value) return;
   
   participationLoading.value = true;
   try {
+    console.log('🔍 Buscando participación con:', {
+      academyId: userAcademyId.value,
+      championshipId: championshipId.value,
+      url: `/academy-championships/${userAcademyId.value}/${championshipId.value}`
+    });
+    
     const data = await academyChampionshipService.getParticipation(
       userAcademyId.value,
       championshipId.value
     );
     participation.value = data;
-  } catch (err) {
-    console.error('Error al obtener participación:', err);
+    
+    if (data) {
+      console.log('✅ Participación encontrada:', data);
+      console.log('📊 Estado:', data.status);
+    } else {
+      console.log('ℹ️ No hay participación previa en este campeonato');
+    }
+  } catch (err: any) {
+    // Solo mostrar error si no es un 404 (404 es esperado cuando no hay participación)
+    if (err.response?.status !== 404) {
+      console.error('❌ Error al obtener participación:', err);
+    }
   } finally {
     participationLoading.value = false;
   }
@@ -242,6 +255,7 @@ onMounted(async () => {
 });
 
 // --- Handlers ---
+
 const handleParticipate = async () => {
   if (!userAcademyId.value) {
     alert('❌ No se encontró tu academia. Por favor, inicia sesión nuevamente.');
@@ -258,22 +272,12 @@ const handleParticipate = async () => {
     });
     
     participation.value = newParticipation;
-    
-    // Datos de ejemplo - reemplazar con lógica real
-    draftParticipants.value = [
-      { id: 1, name: 'Juan Pérez', category: 'Senior Masculino -75kg' },
-      { id: 2, name: 'María García', category: 'Senior Femenino -61kg' }
-    ];
   } catch (err: any) {
     console.error('Error al iniciar participación:', err);
     alert('❌ Error al iniciar participación');
   } finally {
     participationLoading.value = false;
   }
-};
-
-const handleAddParticipant = (participant: DraftParticipant) => {
-  draftParticipants.value.push(participant);
 };
 
 const handleConfirmRegistrations = async () => {
@@ -290,10 +294,10 @@ const handleConfirmRegistrations = async () => {
     );
     
     console.log('✅ Estado avanzado:', response);
-    participation.value = response.participation;
-    draftParticipants.value = [];
+    // El backend devuelve directamente el objeto ParticipationResponse
+    participation.value = response;
     
-    alert(`✅ ${response.message || 'Inscripciones confirmadas exitosamente'}`);
+    alert('✅ Inscripciones confirmadas exitosamente');
   } catch (err: any) {
     console.error('Error al confirmar inscripciones:', err);
     alert(`❌ ${err.response?.data?.message || 'Error al confirmar inscripciones'}`);

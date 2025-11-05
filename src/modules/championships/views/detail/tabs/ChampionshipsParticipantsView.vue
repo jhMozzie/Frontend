@@ -81,7 +81,7 @@
     </div>
 
     <div v-else class="rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
-      <DataTable :data="championshipParticipants" :columns="tableColumns">
+      <DataTable :data="filteredParticipants" :columns="tableColumns">
         
         <template #studentName="{ item }">
           <div class="flex items-center gap-3">
@@ -256,6 +256,28 @@ const activeFilterCount = computed(() =>
     (filters.value.categoryId !== 'all' ? 1 : 0)
 );
 
+// 🆕 Filtrar participantes en el frontend
+const filteredParticipants = computed(() => {
+  let results = championshipParticipants.value;
+  
+  // Filtro por búsqueda de nombre
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase();
+    results = results.filter((p: any) => 
+      p.studentName?.toLowerCase().includes(query)
+    );
+  }
+  
+  // Filtro por academia (solo para administradores)
+  if (userRole.value !== 'Entrenador' && filters.value.academyName !== 'all') {
+    results = results.filter((p: any) => 
+      p.academyName === filters.value.academyName
+    );
+  }
+  
+  return results;
+});
+
 const tableColumns = ref([
   { key: 'studentName', label: 'Nombre' }, 
   { key: 'categoryName', label: 'Categoría' }, 
@@ -276,13 +298,18 @@ const fetchData = (page: number) => {
         params.academyId = userAcademyId.value;
     }
     
+    // 🆕 Aplicar filtro de academia para administradores
+    if (userRole.value !== "Entrenador" && filters.value.academyName !== 'all') {
+        // Aquí necesitarías el ID de la academia, pero si solo tienes el nombre
+        // tendrías que buscar en los datos o agregar un mapa de nombre a ID
+        console.log('Filtro de academia seleccionado:', filters.value.academyName);
+    }
+    
     fetchParticipants(params);
     
-    // 💥 IMPRESIÓN PARA DIAGNÓSTICO
     console.log("--- DEBUG TABLA DATOS ---");
     console.log("Rol del usuario:", userRole.value);
     console.log("Academy ID:", userAcademyId.value);
-    console.log("Datos de la tabla (championshipParticipants):", championshipParticipants.value);
     console.log("Parámetros enviados:", params);
     console.log("-------------------------");
 };
@@ -296,8 +323,13 @@ const changePage = (page: number) => {
     fetchData(page);
 };
 
+// 🆕 Manejar cambios en búsqueda y filtros
+const handleSearchOrFilterChange = () => {
+    fetchData(1); // Volver a la primera página al filtrar
+};
+
 watch([searchQuery, filters], () => {
-    // handleSearchOrFilterChange(); 
+    handleSearchOrFilterChange();
 }, { deep: true });
 
 const clearFilters = () => {

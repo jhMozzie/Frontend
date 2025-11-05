@@ -23,8 +23,8 @@
           <LucideBuilding2 class="h-5 w-5 text-blue-600" />
           <span class="text-sm font-medium text-gray-600">Total Academias</span>
         </div>
-        <p class="text-2xl font-bold text-gray-800 mt-2">{{ academies.length }}</p>
-        <p class="text-xs text-gray-400">Registradas en el sistema</p>
+        <p class="text-2xl font-bold text-gray-800 mt-2">{{ filteredAcademies.length }}</p>
+        <p class="text-xs text-gray-400">{{ searchQuery ? 'Filtradas' : 'Registradas en el sistema' }}</p>
       </div>
 
       <!-- Activas -->
@@ -61,18 +61,29 @@
     <!-- 📋 Contenedor de tabla -->
     <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       <!-- 🧾 Header tabla -->
-      <div class="flex items-center justify-between p-4 border-b border-gray-200">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border-b border-gray-200 gap-4">
         <div>
           <h2 class="font-semibold text-gray-800 text-lg">Lista de Academias</h2>
           <p class="text-sm text-gray-500">
-            {{ meta.total }} academias • Página {{ meta.page }} de {{ meta.totalPages }}
+            {{ filteredAcademies.length }} de {{ meta.total }} academias • Página {{ meta.page }} de {{ meta.totalPages }}
           </p>
+        </div>
+        
+        <!-- Campo de búsqueda -->
+        <div class="relative w-full sm:w-72">
+          <LucideSearch class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Buscar por nombre..."
+            class="w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 focus:border-gray-400 focus:outline-none focus:ring-0"
+          />
         </div>
       </div>
 
       <!-- ✅ Tabla (sin columna Estado) -->
       <DataTable
-        :data="academies"
+        :data="filteredAcademies"
         :columns="[
           { key: 'name', label: 'Nombre' },
           { key: 'instructor', label: 'Instructor' },
@@ -146,6 +157,7 @@ import {
   LucideCheckCircle2,
   LucideXCircle,
   LucideBarChart2,
+  LucideSearch,
 } from "lucide-vue-next";
 import { useAcademyStore } from "../stores/academy.store";
 import DataTable from "@/components/ui/DataTable.vue";
@@ -157,7 +169,22 @@ const academyStore = useAcademyStore();
 const { academies, meta } = storeToRefs(academyStore);
 const { fetchAcademies, deleteAcademy } = academyStore;
 
-// 🔄 Cargar al montar
+// � Búsqueda
+const searchQuery = ref("");
+
+// Filtrar academias por nombre
+const filteredAcademies = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return academies.value;
+  }
+  
+  const query = searchQuery.value.toLowerCase();
+  return academies.value.filter((academy) =>
+    academy.name.toLowerCase().includes(query)
+  );
+});
+
+// �🔄 Cargar al montar
 onMounted(() => fetchAcademies(1, 10));
 
 // 📄 Paginación
@@ -190,13 +217,13 @@ const saveAcademy = async (academyData: any) => {
 
 // 📊 KPIs
 const activeCount = computed(
-  () => academies.value.filter((a) => a.status === "Activo").length
+  () => filteredAcademies.value.filter((a) => a.status === "Activo").length
 );
 const inactiveCount = computed(
-  () => academies.value.filter((a) => a.status !== "Activo").length
+  () => filteredAcademies.value.filter((a) => a.status !== "Activo").length
 );
 const averageStudents = computed(() => {
-  const activeAcademies = academies.value.filter((a) => a.status === "Activo");
+  const activeAcademies = filteredAcademies.value.filter((a) => a.status === "Activo");
   const total = activeAcademies.length || 1;
   const totalStudentsActive = activeAcademies.reduce(
     (sum, a) => sum + (a.students || 0),

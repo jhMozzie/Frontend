@@ -5,7 +5,6 @@ import type {
   CreateParticipationDto,
   UpdateParticipationStatusDto,
   ParticipationResponse,
-  AdvanceStatusResponse,
 } from "../types/academy-championships.types"
 
 export const academyChampionshipService = {
@@ -62,8 +61,8 @@ export const academyChampionshipService = {
   async advanceStatus(
     academyId: number,
     championshipId: number
-  ): Promise<AdvanceStatusResponse> {
-    const response = await api.post<AdvanceStatusResponse>(
+  ): Promise<ParticipationResponse> {
+    const response = await api.post<ParticipationResponse>(
       `/academy-championships/${academyId}/${championshipId}/advance`
     )
     return response.data

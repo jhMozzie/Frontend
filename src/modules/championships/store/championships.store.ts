@@ -291,10 +291,23 @@ export const useChampionshipStore = defineStore("championships", () => {
         if (query.length < 3) {
             return;
         }
-    const resp = await studentService.getAll(1, 50) as StudentListResponse;
+    console.log('🔍 Buscando estudiantes con query:', query);
+    
+    // 🆕 Obtener academyId del localStorage si el usuario es entrenador
+    const userRole = localStorage.getItem("userRole");
+    const userAcademyId = localStorage.getItem("academyId") ? Number(localStorage.getItem("academyId")) : undefined;
+    
+    console.log('👤 Rol:', userRole);
+    console.log('🏫 AcademyId:', userAcademyId);
+    
+    // Si es entrenador, filtrar por su academia desde el backend
+    const resp = await studentService.getAll(1, 50, userRole === "Entrenador" ? userAcademyId : undefined) as StudentListResponse;
     const list = resp.data || [];
+    console.log('📋 Total estudiantes obtenidos del backend:', list.length);
+    console.log('📋 Datos completos:', list);
+    
     const q = query.toLowerCase();
-    // 🆕 Incluir academyId en los resultados para el filtrado por academia
+    // Incluir academyId en los resultados para el filtrado por academia
     studentsResults.value = list
       .filter((s: any) => (`${s.firstname} ${s.lastname}`).toLowerCase().includes(q))
       .map((s: any) => ({ 
@@ -303,8 +316,10 @@ export const useChampionshipStore = defineStore("championships", () => {
         academyId: s.academyId 
       }));
 
+    console.log('✅ Estudiantes filtrados por query:', studentsResults.value);
+
     } catch (err: any) {
-        console.error("Error al buscar estudiantes:", err);
+        console.error("❌ Error al buscar estudiantes:", err);
     } finally {
         studentsLoading.value = false;
     }

@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Servicio de Producción
+  frontend-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: karate-frontend-prod
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    networks:
+      - karate-network
+    profiles:
+      - production
+
+  # Servicio de Desarrollo
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: karate-frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    networks:
+      - karate-network
+    profiles:
+      - development
+
+networks:
+  karate-network:
+    driver: bridge

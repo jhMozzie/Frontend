@@ -1,0 +1,23 @@
+# Dockerfile para desarrollo con hot-reload
+FROM node:20-alpine
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Instalar pnpm
+RUN npm install -g pnpm
+
+# Copiar archivos de dependencias
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Instalar dependencias
+RUN pnpm install
+
+# Copiar el resto del código
+COPY . .
+
+# Exponer el puerto de Vite
+EXPOSE 5173
+
+# Comando para iniciar el servidor de desarrollo
+CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]

@@ -5,12 +5,14 @@
         <h2 class="text-lg font-semibold text-gray-800">Visualización de Llaves</h2>
         <p class="text-sm text-gray-500">Selecciona una categoría para ver su bracket.</p>
       </div>
-      <select v-model="selectedCategoryId" class="w-full sm:w-72 rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0" @change="handleCategoryChange">
-        <option :value="null" disabled>Selecciona una categoría</option>
-        <option v-for="category in championshipStore.championshipCategories" :key="category.id" :value="category.id">
-          {{ category.modality }} {{ category.gender }} - {{ category.weight || category.ageRangeLabel }}
-        </option>
-      </select>
+      <div class="flex items-center gap-3">
+        <select v-model="selectedCategoryId" class="w-full sm:w-72 rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0" @change="handleCategoryChange">
+          <option :value="null" disabled>Selecciona una categoría</option>
+          <option v-for="category in championshipStore.championshipCategories" :key="category.id" :value="category.id">
+            {{ category.modality }} {{ category.gender }} - {{ category.weight || category.ageRangeLabel }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <!-- Brackets con encabezados -->

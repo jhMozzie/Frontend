@@ -54,13 +54,10 @@
            <LucideUsers class="h-4 w-4" />
            Generar Brackets
        </button>
-       <button 
-           @click="handleExportBracketsPdf"
-           class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-       >
-           <LucideFileText class="h-4 w-4" />
-           Generar PDF de Brackets
-       </button>
+       <BracketsPdfExport 
+           :championship-id="championshipId"
+           :championship-name="currentChampionship?.name"
+       />
     </div>
     
     <div class="mb-6">
@@ -131,8 +128,9 @@ import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
+import BracketsPdfExport from '@/modules/championships/components/brackets/BracketsPdfExport.vue';
 // 💥 Importar todos los iconos
-import { LucideSearch, LucideFilter, LucideX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LucideUsers, LucideInbox, LucideLoader2, LucideAlertTriangle, LucideFileText } from 'lucide-vue-next';
+import { LucideSearch, LucideFilter, LucideX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LucideUsers, LucideInbox, LucideLoader2, LucideAlertTriangle } from 'lucide-vue-next';
 
 // --- Store y Estado ---
 const route = useRoute();
@@ -141,11 +139,12 @@ const championshipStore = useChampionshipStore();
 const { 
   championshipCategories, 
   categoriesLoading: loading, 
-  categoriesError: error     
+  categoriesError: error,
+  currentChampionship
 } = storeToRefs(championshipStore);
 
 // 💥 CORRECCIÓN: Desestructuramos las acciones del store
-const { fetchChampionshipCategories, generateBrackets, exportBracketsPdf } = championshipStore as any; 
+const { fetchChampionshipCategories, generateBrackets } = championshipStore as any; 
 
 const championshipId = computed(() => Number(route.params.id));
 
@@ -258,12 +257,6 @@ const handleGenerateBrackets = async () => {
             // 3. 💥 Mostrar el "Toast" de error
             alert("Error al generar brackets: " + (e.message || "Error desconocido"));
         }
-    }
-};
-
-const handleExportBracketsPdf = () => {
-    if (championshipId.value) {
-        exportBracketsPdf(championshipId.value);
     }
 };
 

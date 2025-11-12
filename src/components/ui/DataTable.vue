@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
+defineProps<{
   data: any[]
   columns: { key: string; label: string }[]
 }>()

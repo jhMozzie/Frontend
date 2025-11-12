@@ -2,7 +2,6 @@
 import { api } from "@/services/api";
 import type {
   PaginatedParticipantsResponse,
-  ParticipantStudentItem,
   CreateParticipantPayload,
   ParticipantListParams,
   // 💥 Importar el nuevo tipo

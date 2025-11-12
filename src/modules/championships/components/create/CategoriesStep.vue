@@ -276,7 +276,6 @@ const startIndex = computed(() => (currentPage.value - 1) * itemsPerPage.value);
 const endIndex = computed(() => startIndex.value + itemsPerPage.value);
 const filteredPaginatedCategories = computed(() => filteredCategories.value.slice(startIndex.value, endIndex.value));
 
-const uniqueAgeRanges = computed(() => [...new Set(championshipCategories.value.map(c => c.ageRangeLabel).filter(Boolean))].sort());
 const uniqueBeltNames = computed(() => [...new Set(championshipCategories.value.map(c => c.beltMinName).filter(Boolean))].sort());
 
 
@@ -290,16 +289,6 @@ const isEditing = ref(false)
 const editingCategoryData = ref<Partial<CreateChampionshipCategoryPayload> & { id?: number } | undefined>(undefined)
 const modalError = ref<string | null>(null)
 const isSaving = ref(false)
-
-const getInitialFormData = (): CreateChampionshipCategoryPayload => ({
-  code: '',
-  modality: 'Kata',
-  gender: 'Masculino',
-  beltMinId: 9, 
-  beltMaxId: 12,
-  ageRangeId: 1,
-  weight: null,
-})
 
 const openCreateModal = () => {
   isEditing.value = false

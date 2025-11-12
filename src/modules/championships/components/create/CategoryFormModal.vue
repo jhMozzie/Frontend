@@ -128,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { LucideX, LucideLoader2 } from 'lucide-vue-next';
 import type { CreateChampionshipCategoryPayload } from '@/modules/championships/types/championships-categories.types';
 // (Necesitarás un servicio global o local para cargar belts y ageRanges)

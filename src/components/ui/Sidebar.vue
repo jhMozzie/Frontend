@@ -80,7 +80,7 @@ import {
   LucideLogOut,
 } from "lucide-vue-next"
 
-const props = defineProps<{ isOpen: boolean; toggleSidebar: () => void }>()
+defineProps<{ isOpen: boolean; toggleSidebar: () => void }>()
 
 // Obtener el rol del usuario desde localStorage
 const userRole = ref(localStorage.getItem("userRole") || "")

@@ -28,7 +28,97 @@
         />
       </div>
       <div>
-         </div>
+        <label
+          for="location"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Ubicación</label
+        >
+        <input
+          id="location"
+          type="text"
+          v-model="model.location"
+          placeholder="Ej. Polideportivo Municipal"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400"
+        />
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label
+          for="district"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Distrito</label
+        >
+        <input
+          id="district"
+          type="text"
+          v-model="model.district"
+          placeholder="Ej. San Isidro"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400"
+        />
+      </div>
+      <div>
+        <label
+          for="province"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Provincia</label
+        >
+        <input
+          id="province"
+          type="text"
+          v-model="model.province"
+          placeholder="Ej. Lima"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400"
+        />
+      </div>
+      <div>
+        <label
+          for="country"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >País</label
+        >
+        <input
+          id="country"
+          type="text"
+          v-model="model.country"
+          placeholder="Ej. Perú"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400"
+        />
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label
+          for="referees"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Número de Árbitros</label
+        >
+        <input
+          id="referees"
+          type="number"
+          min="1"
+          v-model.number="model.referees"
+          placeholder="Ej. 10"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400"
+        />
+      </div>
+      <div>
+        <label
+          for="tatamis"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Número de Tatamis</label
+        >
+        <input
+          id="tatamis"
+          type="number"
+          min="1"
+          v-model.number="model.tatamis"
+          placeholder="Ej. 4"
+          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400"
+        />
+      </div>
     </div>
 
 

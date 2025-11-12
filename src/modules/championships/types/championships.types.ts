@@ -10,9 +10,11 @@ export interface Championship {
   province: string
   country: string
   description: string // 👈 AÑADIDO
-  image: string
+  image: string | null
   status: string
   academy: string
+  referees: number
+  tatamis: number
 }
 
 // ✅ DTOs para Crear
@@ -24,9 +26,11 @@ export interface CreateChampionshipDto {
   province?: string // Mantenemos opcional
   country?: string  // Mantenemos opcional
   description?: string // 👈 AÑADIDO (opcional al crear)
-  image?: string
+  image?: string | null
   status: string
   academyId: number
+  referees: number
+  tatamis: number
 }
 
 // ✅ DTOs para Actualizar

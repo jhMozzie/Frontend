@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 transition-opacity duration-300 ease-out"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 transition-opacity duration-300 ease-out"
     @click.self="handleClose"
   >
     <div class="bg-white rounded-lg shadow-xl w-full max-w-lg" ref="modalContentRef">
@@ -128,12 +128,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { LucideX, LucideLoader2 } from 'lucide-vue-next';
 import type { CreateChampionshipCategoryPayload } from '@/modules/championships/types/championships-categories.types';
-// (Necesitarás un servicio global o local para cargar belts y ageRanges)
-// import { beltService } from '@/services/belt.service'; 
-// import { ageRangeService } from '@/services/ageRange.service';
+import { useChampionshipStore } from '@/modules/championships/store/championships.store';
+import { storeToRefs } from 'pinia';
+
+// --- STORE ---
+const championshipStore = useChampionshipStore();
+const { belts } = storeToRefs(championshipStore);
+const { fetchBelts } = championshipStore;
 
 // --- DEFINICIÓN DE PROPS ---
 const props = defineProps<{
@@ -188,12 +192,6 @@ watch(() => props.initialData, (newData) => {
 
 // --- DATOS PARA LOS SELECTS (Simulados) ---
 // (En un caso real, cargarías esto con onMounted desde tus servicios)
-const belts = ref([
-  { id: 9, name: 'Marrón', kyuLevel: 3 },
-  { id: 10, name: 'Marrón', kyuLevel: 2 },
-  { id: 11, name: 'Marrón', kyuLevel: 1 },
-  { id: 12, name: 'Negro', kyuLevel: 0 },
-]);
 const ageRanges = ref([
   { id: 1, label: 'U14 (12-13 años)', minAge: 12, maxAge: 13 },
   { id: 2, label: 'Cadete (14-15 años)', minAge: 14, maxAge: 15 },
@@ -201,10 +199,12 @@ const ageRanges = ref([
   { id: 4, label: 'Sub-21 (18-20 años)', minAge: 18, maxAge: 20 },
   { id: 5, label: 'Senior (18+ años)', minAge: 18, maxAge: 99 },
 ]);
-// onMounted(async () => {
-//   belts.value = await beltService.getAll();
-//   ageRanges.value = await ageRangeService.getAll();
-// });
+
+// Cargar belts del backend
+onMounted(async () => {
+  await fetchBelts();
+});
+
 
 
 // --- HANDLERS (EMISIÓN DE EVENTOS) ---

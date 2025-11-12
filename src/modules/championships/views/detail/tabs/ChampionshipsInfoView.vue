@@ -27,8 +27,9 @@
           </div>
         </div>
       </div>
+      <!-- Programa del Evento - OCULTO temporalmente
       <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">Programa del Evento (Ejemplo)</h2>
+        <h2 class="text-xl font-bold text-gray-900 mb-4">Programa del Evento</h2>
         <div class="space-y-3">
           <div v-for="(item, index) in schedule" :key="index" class="flex items-start gap-4 pb-3 border-b border-gray-200 last:border-0">
             <span class="text-sm font-medium text-red-600 whitespace-nowrap">{{ item.time }}</span>
@@ -36,6 +37,7 @@
           </div>
         </div>
       </div>
+      -->
     </div>
     <div class="space-y-6">
       <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -69,7 +71,7 @@
         </div>
       </div>
       <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-        <h2 class="text-lg font-bold text-gray-900 mb-4">Estado (Ejemplo)</h2>
+        <h2 class="text-lg font-bold text-gray-900 mb-4">Estado</h2>
         <div class="space-y-3">
           <div v-for="item in statusInfo" :key="item.label" class="flex items-center justify-between">
             <span class="text-sm text-gray-500">{{ item.label }}</span>
@@ -77,6 +79,7 @@
           </div>
         </div>
       </div>
+      <!-- Acciones Rápidas - OCULTO temporalmente
        <div class="p-6 bg-red-50 border-red-200 rounded-lg shadow-sm">
          <h2 class="text-lg font-bold text-gray-900 mb-2">Acciones Rápidas</h2>
         <div class="space-y-2">
@@ -84,6 +87,7 @@
           <button class="w-full bg-transparent border border-gray-300 text-gray-700 h-9 px-3 text-sm rounded-md hover:bg-gray-50">Generar Reporte</button>
         </div>
       </div>
+      -->
     </div>
   </div>
   <div v-else class="text-center py-10 text-gray-500">
@@ -124,19 +128,36 @@ function formatDate(dateString: string | Date | undefined | null): string {
 
 // 4. Datos hardcodeados (se quedan aquí)
 const categories = ["Kata Individual", "Kata por Equipos", "Kumite Individual", "Kumite por Equipos"];
-const schedule = [
-    { time: "09:00 - 10:00", event: "Registro y Acreditación" },
-    { time: "10:00 - 10:30", event: "Ceremonia de Apertura" },
-    { time: "10:30 - 13:00", event: "Eliminatorias Kata Individual" },
-    { time: "13:00 - 14:30", event: "Almuerzo" },
-    { time: "14:30 - 17:00", event: "Eliminatorias Kumite Individual" },
-    { time: "17:00 - 18:30", event: "Finales" },
-    { time: "18:30 - 19:00", event: "Ceremonia de Premiación" }
-];
-const statusInfo = [
-    { label: "Inscripciones", value: "Abiertas", valueClass: "text-red-600 font-medium" },
-    { label: "Categorías", value: "8 activas" },
-    { label: "Árbitros", value: "12 asignados" },
-    { label: "Tatamis", value: "4 disponibles" }
-];
+
+// Información de estado con datos reales del campeonato
+const statusInfo = computed(() => {
+  if (!props.championshipData) return [];
+  
+  return [
+    { 
+      label: "Estado", 
+      value: props.championshipData.status || 'Sin estado',
+      valueClass: props.championshipData.status === 'Inscripción Abierta' 
+        ? "text-green-600 font-medium"
+        : props.championshipData.status === 'Activo'
+        ? "text-blue-600 font-medium"
+        : props.championshipData.status === 'Próximo'
+        ? "text-amber-600 font-medium"
+        : "text-gray-600 font-medium"
+    },
+    // { 
+    //   label: "Academia Organizadora", 
+    //   value: props.championshipData.academy || 'Sin asignar'
+    // },
+    { 
+      label: "Árbitros Asignados", 
+      value: props.championshipData.referees ? `${props.championshipData.referees}` : 'No definido'
+    },
+    { 
+      label: "Tatamis Disponibles", 
+      value: props.championshipData.tatamis ? `${props.championshipData.tatamis}` : 'No definido'
+    }
+  ];
+});
+
 </script>

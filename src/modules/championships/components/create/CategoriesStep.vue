@@ -98,8 +98,10 @@
       {{ categoriesError }}
     </div>
 
-    <div v-else class="rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
-      <DataTable :data="filteredPaginatedCategories" :columns="tableColumns">
+    <div v-else class="relative">
+      <div class="rounded-lg border border-gray-200 shadow-sm overflow-x-auto">
+        <div class="min-w-[1200px]">
+          <DataTable :data="filteredPaginatedCategories" :columns="tableColumns">
         <template #name="{ item }">
           <span class="font-medium text-gray-900">{{ generateCategoryName(item) }}</span>
         </template>
@@ -123,6 +125,8 @@
           </div>
         </template>
       </DataTable>
+      </div>
+      </div>
     </div>
 
     <div v-if="!categoriesLoading && totalPages > 1" class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
@@ -377,3 +381,29 @@ function generateCategoryName(cat: ChampionshipCategoryListItem): string {
     return name;
 }
 </script>
+
+<style scoped>
+/* Asegurar que el scroll horizontal sea visible en dispositivos táctiles */
+:deep(.overflow-x-auto) {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+:deep(.overflow-x-auto)::-webkit-scrollbar {
+  height: 8px;
+}
+
+:deep(.overflow-x-auto)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:deep(.overflow-x-auto)::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 4px;
+}
+
+:deep(.overflow-x-auto)::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.7);
+}
+</style>

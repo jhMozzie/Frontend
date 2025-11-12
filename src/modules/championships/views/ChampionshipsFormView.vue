@@ -24,8 +24,7 @@
       <div class="p-6 md:p-8">
         <div class="mt-8">
           <InfoStep v-if="currentStep === 1" v-model="formData" />
-          <LocationStep v-if="currentStep === 2" v-model="formData" />
-          <CategoriesStep v-if="currentStep === 3" v-model="formData" />
+          <CategoriesStep v-if="currentStep === 2" v-model="formData" />
         </div>
       </div>
 
@@ -80,7 +79,6 @@ import { LucideArrowLeft } from 'lucide-vue-next'
 import ChampionshipStepper from '@/modules/championships/components/ChampionshipsStepper.vue'
 import { useChampionshipStore } from '@/modules/championships/store/championships.store'
 import InfoStep from '@/modules/championships/components/create/InfoStep.vue'
-import LocationStep from '@/modules/championships/components/create/LocationStep.vue'
 import CategoriesStep from '@/modules/championships/components/create/CategoriesStep.vue'
 
 const router = useRouter()
@@ -89,7 +87,7 @@ const championshipStore = useChampionshipStore()
 
 // --- ESTADO LOCAL ---
 const currentStep = ref(1)
-const steps = ['Información y Fecha', 'Ubicación', 'Categorías']
+const steps = ['Información y Ubicación', 'Categorías']
 
 // 💡 Lógica para detectar el modo (Crear vs. Editar)
 const championshipId = computed(() => route.params.id ? Number(route.params.id) : null)
@@ -124,6 +122,8 @@ const formData = ref({
   province: '',
   country: '',
   venueDescription: '',
+  referees: 0,
+  tatamis: 0,
   categories: [] as string[],
   newCategory: '',
 })
@@ -150,6 +150,7 @@ onMounted(async () => {
       if (existingData) {
         // Llenamos el formData con los datos existentes
         formData.value.name = existingData.name
+        formData.value.description = existingData.description || ''
         formData.value.status = existingData.status
         // Ahora esta línea garantiza siempre un string, usando fallback cuando sea undefined
         formData.value.startDate = formatDateForInput(existingData.startDate) || ''
@@ -157,7 +158,9 @@ onMounted(async () => {
         formData.value.district = existingData.district || ''
         formData.value.province = existingData.province || ''
         formData.value.country = existingData.country || ''
-        // (La imagen y la descripción no vienen de la API, se quedan como están)
+        formData.value.referees = existingData.referees || 0
+        formData.value.tatamis = existingData.tatamis || 0
+        // (La imagen no viene de la API, se queda como está)
       }
     } catch (error) {
       console.error("Error al cargar los datos del campeonato:", error)
@@ -181,17 +184,20 @@ const handlePrevious = () => {
 
 // 💡 HANDLESUBMIT ACTUALIZADO (ahora maneja Crear y Editar)
 const handleSubmit = async () => {
-  // 1. Creamos el payload (igual que antes)
+  // 1. Creamos el payload con todos los campos
   const payload = {
     name: formData.value.name,
+    description: formData.value.description,
     startDate: formData.value.startDate,
     location: formData.value.location,
     district: formData.value.district,
     province: formData.value.province,
     country: formData.value.country,
     status: formData.value.status,
-    image: "", // MVP
-    academyId: 1 // MVP
+    referees: formData.value.referees,
+    tatamis: formData.value.tatamis,
+    image: null, // Por ahora null, después implementar subida de imágenes
+    academyId: 1 // MVP - obtener del usuario logueado
   }
 
   console.log('Enviando payload:', payload)

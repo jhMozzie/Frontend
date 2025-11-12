@@ -1,6 +1,6 @@
 <template>
   <div class="overflow-hidden bg-white">
-    <table class="w-full border-collapse text-sm">
+    <table class="w-full min-w-max border-collapse text-sm">
       <thead class="bg-gray-50 border-b border-gray-200">
         <tr>
           <th

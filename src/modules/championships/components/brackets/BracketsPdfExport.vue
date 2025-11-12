@@ -526,21 +526,26 @@ function drawMatchRecursive(
 }
 
 /** Calcula la profundidad máxima del árbol */
+/* No se usa actualmente, pero se mantiene por si se necesita
 function getTreeDepth(match: any): number {
   if (!match || !match.children || match.children.length === 0) {
     return 0;
   }
   return 1 + Math.max(...match.children.map((child: any) => getTreeDepth(child)));
 }
+*/
 
 /** Dibuja las llaves de forma recursiva (estilo árbol) */
 function drawBracket(doc: jsPDF, matches: any[], startY: number) {
   const margin = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
-  const boxW = 100;
-  const boxH = 30;
-  const hGap = 40; // Espacio horizontal entre niveles
-  const vGap = 15; // Espacio vertical entre matches
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // DIMENSIONES FIJAS - No escalar horizontalmente
+  const boxW = 85;      // Ancho fijo de caja
+  const boxH = 28;      // Alto fijo de caja
+  const hGap = 35;      // Espacio horizontal fijo entre niveles
+  const vGap = 12;      // Espacio vertical entre matches
   
   // Construir árbol de matches
   const { root } = buildMatchTree(matches);
@@ -552,22 +557,48 @@ function drawBracket(doc: jsPDF, matches: any[], startY: number) {
     return startY + 100;
   }
   
-  // Calcular dimensiones totales
+  // Calcular dimensiones totales del árbol
   const treeDim = calculateTreeDimensions(root, boxH, vGap);
-  const treeDepth = getTreeDepth(root);
   
-  // Centrar horizontalmente
-  const totalWidth = (treeDepth + 1) * (boxW + hGap);
-  const startX = Math.min(pageWidth - margin - boxW - 10, (pageWidth + totalWidth) / 2 - boxW);
+  // Posición inicial X FIJA (derecha, donde está la final)
+  const startX = pageWidth - margin - boxW;
   
-  // Centrar verticalmente en el espacio disponible
-  const availableHeight = doc.internal.pageSize.getHeight() - startY - 40;
-  const startTreeY = startY + Math.max(20, (availableHeight - treeDim.height) / 2);
+  // Verificar si el bracket cabe verticalmente en esta página
+  const availableHeight = pageHeight - startY - margin;
+  const needsNewPage = treeDim.height > availableHeight;
   
-  // Dibujar el árbol recursivamente
-  drawMatchRecursive(doc, root, startX, startTreeY, boxW, boxH, hGap, vGap);
+  let finalStartY = startY;
   
-  return startTreeY + treeDim.height + 30;
+  if (needsNewPage) {
+    // Si no cabe, crear nueva página y empezar desde arriba
+    doc.addPage();
+    finalStartY = margin + 10;
+    
+    // Re-dibujar el header en la nueva página para continuidad
+    const cat = matches[0]?.championshipCategory ?? {};
+    const catTitle = `${cat?.code ?? ''} - ${cat?.gender ?? ''} ${cat?.ageRange?.label ?? cat?.weight ?? ''}`.trim();
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(`${catTitle} (continuación)`, pageWidth / 2, finalStartY, { align: 'center' });
+    finalStartY += 20;
+  }
+  
+  // Verificar si necesita dividirse en múltiples páginas verticalmente
+  const maxHeightPerPage = pageHeight - finalStartY - margin;
+  
+  if (treeDim.height > maxHeightPerPage) {
+    // El bracket es demasiado alto incluso para una página nueva
+    // Centrar lo mejor posible
+    const startTreeY = finalStartY + 10;
+    drawMatchRecursive(doc, root, startX, startTreeY, boxW, boxH, hGap, vGap);
+    return pageHeight - margin; // Indicar que se usó toda la página
+  } else {
+    // Centrar verticalmente en el espacio disponible
+    const startTreeY = finalStartY + Math.max(10, (maxHeightPerPage - treeDim.height) / 2);
+    drawMatchRecursive(doc, root, startX, startTreeY, boxW, boxH, hGap, vGap);
+    return startTreeY + treeDim.height + 20;
+  }
 }
 
 /** Orquestador: por cada categoría, tabla + llaves (nueva página si hace falta) */

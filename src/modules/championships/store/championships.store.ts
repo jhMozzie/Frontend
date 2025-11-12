@@ -9,6 +9,7 @@ import { championshipCategoryService } from "../services/championships-categorie
 import { participantService } from "../services/participants.service"
 import { studentService } from '@/modules/students/services/students.service'
 import { matchService } from "../services/matches.service" // Asumiendo 'match.service.ts'
+import { beltsService } from "../services/belts.service"
 
 // --- 2. Importación de Tipos (Desde el index central) ---
 import type {
@@ -26,7 +27,8 @@ import type {
   ParticipantListParams,
   Inscription,
   Match
-} from "../types"; 
+} from "../types"
+import type { Belt } from "../types/belts.types" 
 
 // TIPOS ASUMIDOS
 type StudentSearchResult = { id: number, name: string };
@@ -100,6 +102,11 @@ export const useChampionshipStore = defineStore("championships", () => {
   const matches = ref<Match[]>([]);
   const matchesLoading = ref(false);
   const matchesError = ref<string | null>(null);
+
+  // 💥 ESTADO PARA BELTS (CINTURONES)
+  const belts = ref<Belt[]>([]);
+  const beltsLoading = ref(false);
+  const beltsError = ref<string | null>(null);
 
   // ===================================================================
   // === ACCIONES: CAMPEONATO (ACTIONS: CHAMPIONSHIP)
@@ -405,6 +412,23 @@ export const useChampionshipStore = defineStore("championships", () => {
       alert(`Simulando exportación de PDF para Campeonato ID: ${championshipId}`);
   }
 
+  // ===================================================================
+  // === ACCIONES: BELTS (CINTURONES)
+  // ===================================================================
+  
+  const fetchBelts = async () => {
+    beltsLoading.value = true;
+    beltsError.value = null;
+    try {
+      const data = await beltsService.getAll();
+      belts.value = data;
+    } catch (err: any) {
+      beltsError.value = err.message || "Error al obtener cinturones";
+      console.error("Error fetching belts:", err);
+    } finally {
+      beltsLoading.value = false;
+    }
+  }
 
   // ===================================================================
   // === EXPORTACIONES (RETURN)
@@ -435,5 +459,10 @@ export const useChampionshipStore = defineStore("championships", () => {
     updateMatchResult,
     generateBrackets,
     exportBracketsPdf,
+    
+    belts,
+    beltsLoading,
+    beltsError,
+    fetchBelts,
   }
 })

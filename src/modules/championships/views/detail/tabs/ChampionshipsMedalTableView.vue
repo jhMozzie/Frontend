@@ -92,7 +92,6 @@
           </div>
         </div>
       </div>
-
       <!-- 3er Lugar -->
       <div v-if="medalTable[2]" class="order-3">
         <div class="relative pt-7">

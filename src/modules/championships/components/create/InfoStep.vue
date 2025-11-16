@@ -191,10 +191,11 @@
           v-model="model.status"
           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-0 focus:border-gray-400 appearance-none pr-8 cursor-pointer"
         >
-          <option value="Planificación">Planificación</option>
+          <option value="" disabled>Selecciona el estado del campeonato</option>
+          <option value="Inscripción Cerrada">Inscripción Cerrada</option>
           <option value="Inscripción Abierta">Inscripción Abierta</option>
-          <option value="Próximo">Próximo</option>
-          <option value="Activo">Activo</option>
+          <option value="En Curso">En Curso</option>
+          <option value="Finalizado">Finalizado</option>
         </select>
         <LucideChevronDown
           class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"

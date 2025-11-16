@@ -5,7 +5,7 @@
       class="relative ml-[50px] flex items-center"
     >
       <div 
-        v-if="!isRoot && hasChildren" 
+        v-if="hasChildren" 
         class="absolute w-[25px] h-0.5 left-0 top-1/2 bg-gray-300 -translate-x-full"
       ></div>
 

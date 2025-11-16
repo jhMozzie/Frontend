@@ -154,8 +154,8 @@ import type { Student } from "../types/students.types"
 
 // 🏪 Store
 const studentStore = useStudentStore()
-const { students, meta } = storeToRefs(studentStore)
-const { fetchStudents, deleteStudent } = studentStore
+const { students, meta, allStudents } = storeToRefs(studentStore)
+const { fetchStudents, fetchAllStudents, deleteStudent } = studentStore
 
 // 👤 Obtener rol y academyId del usuario actual
 const userRole = ref<string | null>(localStorage.getItem("userRole"))
@@ -177,12 +177,14 @@ onMounted(() => {
   if (userRole.value === "Entrenador" && userAcademyId.value) {
     console.log(`✅ Filtrando por academyId: ${userAcademyId.value}`)
     fetchStudents(1, 10, userAcademyId.value)
+    fetchAllStudents(userAcademyId.value)
   } else {
     console.log("⚠️ No se aplica filtro de academia:", {
       esEntrenador: userRole.value === "Entrenador",
       tieneAcademyId: !!userAcademyId.value
     })
     fetchStudents(1, 10)
+    fetchAllStudents()
   }
 })
 
@@ -190,8 +192,13 @@ onMounted(() => {
 const q = ref("")
 const filtered = computed(() => {
   const term = q.value.trim().toLowerCase()
-  if (!term) return students.value
-  return students.value.filter((s) =>
+
+  // Si hay término de búsqueda usamos allStudents para cubrir todo el dataset
+  let list = term ? allStudents.value ?? [] : students.value ?? []
+
+  if (!term) return list
+
+  return list.filter((s) =>
     [
       s.firstname,
       s.lastname,

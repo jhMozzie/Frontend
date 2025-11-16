@@ -113,7 +113,7 @@ const formData = ref({
   description: '',
   imagePreview: null as string | null,
   imageFile: null as File | null,
-  status: 'Planificación',
+  status: '',
   startDate: '',
   location: '',
   address: '',
@@ -151,7 +151,7 @@ onMounted(async () => {
         // Llenamos el formData con los datos existentes
         formData.value.name = existingData.name
         formData.value.description = existingData.description || ''
-        formData.value.status = existingData.status
+        formData.value.status = existingData.status || ''
         // Ahora esta línea garantiza siempre un string, usando fallback cuando sea undefined
         formData.value.startDate = formatDateForInput(existingData.startDate) || ''
         formData.value.location = existingData.location

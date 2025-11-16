@@ -28,14 +28,45 @@
         <RouterView />
       </section>
     </main>
+
+    <!-- Botón flotante de AIQueryBot - Solo visible después del login -->
+    <AIQueryBot v-if="isAuthenticated" />
   </div>
 </template>
 
 <script setup lang="ts">
-import Sidebar from "@/components/ui/Sidebar.vue"
-import { LucideMenu } from "lucide-vue-next"
-import { ref } from "vue"
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import Sidebar from '../ui/Sidebar.vue'
+import AIQueryBot from '@/modules/aiquerybot/components/AIQueryBot.vue'
+import { LucideMenu } from 'lucide-vue-next'
+import { getCurrentUserRole } from '@/utils/auth'
 
 const sidebarOpen = ref(false)
-const toggleSidebar = () => (sidebarOpen.value = !sidebarOpen.value)
+
+const toggleSidebar = () => {
+  sidebarOpen.value = !sidebarOpen.value
+}
+
+// Comprobar si el usuario está autenticado
+const isAuthenticated = computed(() => {
+  return getCurrentUserRole() !== null
+})
+
+// Cierra el sidebar al hacer clic fuera en móvil
+const handleClickOutside = (event: MouseEvent) => {
+  const sidebar = document.getElementById('sidebar')
+  const target = event.target as Node
+
+  if (sidebar && !sidebar.contains(target) && sidebarOpen.value) {
+    sidebarOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>

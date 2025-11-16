@@ -72,7 +72,7 @@
 import { ref, computed } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import {
-  LucideHome,
+  // LucideHome, // 🚧 TODO: Descomentar cuando se implemente Dashboard
   LucideTrophy,
   LucideBuilding2,
   LucideUsers,
@@ -99,12 +99,13 @@ const getUserInitials = () => {
 
 // Menú de navegación completo con permisos
 const allNavigation = [
-  { 
-    name: "Dashboard", 
-    href: "/", 
-    icon: LucideHome,
-    roles: ['Administrador', 'Entrenador'] // Ambos pueden ver
-  },
+  // 🚧 TODO: Implementar Dashboard (temporalmente oculto)
+  // { 
+  //   name: "Dashboard", 
+  //   href: "/", 
+  //   icon: LucideHome,
+  //   roles: ['Administrador', 'Entrenador'] // Ambos pueden ver
+  // },
   { 
     name: "Campeonatos", 
     href: "/championships", 

@@ -79,6 +79,7 @@
           <LucidePlus class="w-4 h-4" />
           Agregar Categoría
         </button>
+        <!-- Botón Importar desde Excel - Oculto temporalmente
         <button
           @click="handleImportExcel"
           class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition"
@@ -86,6 +87,7 @@
           <LucideUpload class="w-4 h-4" />
           Importar desde Excel
         </button>
+        -->
       </div>
     </div>
 
@@ -192,7 +194,7 @@ import { storeToRefs } from 'pinia'
 import { useChampionshipStore } from '@/modules/championships/store/championships.store'
 import type { ChampionshipCategoryListItem, CreateChampionshipCategoryPayload, UpdateChampionshipCategoryPayload } from '@/modules/championships/types/championships-categories.types'
 import {
-  LucidePlus, LucideUpload, LucidePencil, LucideTrash2, LucideChevronLeft,
+  LucidePlus, /* LucideUpload, */ LucidePencil, LucideTrash2, LucideChevronLeft,
   LucideChevronRight, LucideLoader2, LucideAlertTriangle, LucideX,
   LucideFilter
 } from 'lucide-vue-next'
@@ -360,7 +362,8 @@ const handleDeleteCategory = async (id: number) => {
   }
 }
 
-const handleImportExcel = () => { alert('Importar desde Excel (pendiente)'); }
+// Función de importación desde Excel - Oculta temporalmente
+// const handleImportExcel = () => { alert('Importar desde Excel (pendiente)'); }
 
 // --- LÓGICA DE DATATABLE ---
 const tableColumns = ref([

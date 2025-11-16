@@ -11,6 +11,7 @@ import type {
 
 export const useStudentStore = defineStore("students", () => {
   const students = ref<Student[]>([])
+  const allStudents = ref<Student[]>([])
   const meta = ref<StudentResponse["meta"]>({
     total: 0,
     page: 1,
@@ -43,6 +44,15 @@ export const useStudentStore = defineStore("students", () => {
     }
   }
 
+  const fetchAllStudents = async (academyId?: number) => {
+    try {
+      const response = await studentService.getAll(1, 9999, academyId)
+      allStudents.value = response.data
+    } catch (err: any) {
+      console.error("Error al cargar todos los estudiantes:", err)
+    }
+  }
+
   const createStudent = async (payload: CreateStudentDto) => {
     await studentService.create(payload)
     await fetchStudents(meta.value.page, meta.value.limit)
@@ -60,10 +70,12 @@ export const useStudentStore = defineStore("students", () => {
 
   return {
     students,
+    allStudents,
     meta,
     loading,
     error,
     fetchStudents,
+    fetchAllStudents,
     fetchStudentById,
     createStudent,
     updateStudent,

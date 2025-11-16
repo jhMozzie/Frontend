@@ -222,13 +222,25 @@ watch(() => filters.value.role, async (newRole) => {
 
 const filteredUsers = computed(() => {
   const term = searchTerm.value.toLowerCase().trim();
-  const list = users.value ?? [];
+
+  // Si el usuario está buscando, usamos el conjunto completo (allUsers)
+  // para que el buscador abarque todos los registros. Si no hay
+  // término de búsqueda, usamos la lista paginada `users`.
+  let list = term ? allUsers.value ?? [] : users.value ?? [];
+
+  // Aplicar filtro por rol en cliente cuando corresponda (útil cuando
+  // se está buscando sobre allUsers)
+  if (filters.value.role && filters.value.role !== 'all') {
+    list = list.filter((u: any) => u.role?.description === filters.value.role);
+  }
+
   if (!term) return list;
-  return list.filter(
-    (u) =>
-      u.username?.toLowerCase().includes(term) ||
-      u.email?.toLowerCase().includes(term) ||
-      (u.role?.description ?? "").toLowerCase().includes(term)
+
+  const normalized = term;
+  return list.filter((u: any) =>
+    (u.username ?? '')?.toLowerCase().includes(normalized) ||
+    (u.email ?? '')?.toLowerCase().includes(normalized) ||
+    (u.role?.description ?? '')?.toLowerCase().includes(normalized)
   );
 });
 

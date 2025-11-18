@@ -108,6 +108,16 @@ export const useChampionshipStore = defineStore("championships", () => {
   const beltsLoading = ref(false);
   const beltsError = ref<string | null>(null);
 
+  // 💥 ESTADO PARA FORM DATA (RANGOS DE EDAD, CINTURONES, ETC.)
+  const formData = ref<{
+    ageRanges: Array<{ id: number; label: string; minAge: number; maxAge: number }>;
+    belts: Array<{ id: number; name: string; kyuLevel: number }>;
+    modalities: string[];
+    genders: string[];
+  } | null>(null);
+  const formDataLoading = ref(false);
+  const formDataError = ref<string | null>(null);
+
   // ===================================================================
   // === ACCIONES: CAMPEONATO (ACTIONS: CHAMPIONSHIP)
   // ===================================================================
@@ -295,7 +305,7 @@ export const useChampionshipStore = defineStore("championships", () => {
     studentsLoading.value = true;
     studentsResults.value = []; 
     try {
-        if (query.length < 3) {
+        if (query.length < 2) {
             return;
         }
     console.log('🔍 Buscando estudiantes con query:', query);
@@ -307,11 +317,11 @@ export const useChampionshipStore = defineStore("championships", () => {
     console.log('👤 Rol:', userRole);
     console.log('🏫 AcademyId:', userAcademyId);
     
-    // Si es entrenador, filtrar por su academia desde el backend
-    const resp = await studentService.getAll(1, 50, userRole === "Entrenador" ? userAcademyId : undefined) as StudentListResponse;
+    // 💥 CORRECCIÓN: Traer TODOS los estudiantes sin límite de paginación
+    // Usando un límite muy alto para obtener todos los resultados
+    const resp = await studentService.getAll(1, 9999, userRole === "Entrenador" ? userAcademyId : undefined) as StudentListResponse;
     const list = resp.data || [];
     console.log('📋 Total estudiantes obtenidos del backend:', list.length);
-    console.log('📋 Datos completos:', list);
     
     const q = query.toLowerCase();
     // Incluir academyId en los resultados para el filtrado por academia
@@ -320,10 +330,13 @@ export const useChampionshipStore = defineStore("championships", () => {
       .map((s: any) => ({ 
         id: s.id, 
         name: `${s.firstname} ${s.lastname}`,
-        academyId: s.academyId 
+        academyId: s.academyId,
+        beltId: s.beltId,
+        beltName: s.belt?.name,
+        beltKyu: s.belt?.kyuLevel,
       }));
 
-    console.log('✅ Estudiantes filtrados por query:', studentsResults.value);
+    console.log('✅ Estudiantes filtrados por query:', studentsResults.value.length, 'resultados');
 
     } catch (err: any) {
         console.error("❌ Error al buscar estudiantes:", err);
@@ -431,6 +444,24 @@ export const useChampionshipStore = defineStore("championships", () => {
   }
 
   // ===================================================================
+  // === ACCIONES: FORM DATA (DATOS PARA FORMULARIOS)
+  // ===================================================================
+  
+  const fetchCategoryFormData = async () => {
+    formDataLoading.value = true;
+    formDataError.value = null;
+    try {
+      const data = await championshipCategoryService.getFormData();
+      formData.value = data;
+    } catch (err: any) {
+      formDataError.value = err.message || "Error al obtener datos del formulario";
+      console.error("Error fetching form data:", err);
+    } finally {
+      formDataLoading.value = false;
+    }
+  }
+
+  // ===================================================================
   // === EXPORTACIONES (RETURN)
   // ===================================================================
   return {
@@ -464,5 +495,10 @@ export const useChampionshipStore = defineStore("championships", () => {
     beltsLoading,
     beltsError,
     fetchBelts,
+    
+    formData,
+    formDataLoading,
+    formDataError,
+    fetchCategoryFormData,
   }
 })

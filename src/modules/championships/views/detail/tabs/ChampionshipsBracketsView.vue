@@ -16,10 +16,10 @@
     </div>
 
     <!-- Brackets con encabezados -->
-    <div class="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <!-- Contenedor con altura fija y scroll -->
-      <div class="overflow-auto" style="max-height: calc(100vh - 250px);">
-        <div class="p-6 min-w-max">
+    <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+      <!-- Contenedor con altura fija y scroll horizontal y vertical -->
+      <div class="overflow-x-auto overflow-y-auto" style="max-height: calc(100vh - 250px);">
+        <div class="p-6 inline-block min-w-full">
           
           <!-- Encabezados dinámicos según profundidad del bracket -->
           <div class="flex gap-8 mb-6 sticky top-0 bg-white z-10 pb-4">
@@ -107,50 +107,63 @@ interface MatchTransformed {
   status: string; 
   nextMatchId: number | null; 
   nextMatchSide: string | null;
-  modality?: 'Kumite' | 'Kata'; // Tipo de competencia detectado desde la categoría
-  categoryInfo?: string; // Información adicional de la categoría
+  modality?: 'Kumite' | 'Kata';
+  categoryInfo?: string;
+  phase?: { description: string; order: number };
 }
 
-// ⭐ FUNCIÓN PARA TRANSFORMAR MATCHES DEL BACKEND AL FORMATO DEL COMPONENTE ⭐
+// BracketNode.vue - NO RENDERIZAR MATCHES CON BYE
+// Los matches con BYE se "saltan" en la visualización
 function transformMatchFromAPI(match: Match): MatchTransformed {
+  // Detectar si es un match con BYE
+  const hasBye = (match.participantAkkaId && !match.participantAoId) || 
+                 (!match.participantAkkaId && match.participantAoId);
+  
   return {
     id: match.id,
     matchNumber: match.matchNumber,
     competitor1: match.participantAkka ? {
       id: match.participantAkka.id,
       name: `${match.participantAkka.student.firstname} ${match.participantAkka.student.lastname}`,
-      academy: match.participantAkka.student.academy.name
+      academy: match.participantAkka.student.academy?.name
     } : undefined,
     competitor2: match.participantAo ? {
       id: match.participantAo.id,
       name: `${match.participantAo.student.firstname} ${match.participantAo.student.lastname}`,
-      academy: match.participantAo.student.academy.name
+      academy: match.participantAo.student.academy?.name
     } : undefined,
     winner: match.winnerId || undefined,
     score1: match.scoreAkka,
     score2: match.scoreAo,
-    status: match.status,
+    status: hasBye && match.status === 'Completado' ? 'BYE' : match.status,
     nextMatchId: match.nextMatchId,
     nextMatchSide: match.nextMatchSide,
-    modality: match.championshipCategory?.modality, // Detectar modalidad automáticamente
+    modality: match.championshipCategory?.modality,
     categoryInfo: match.championshipCategory 
-      ? `${match.championshipCategory.modality} ${match.championshipCategory.gender} - ${match.championshipCategory.ageRange.label}`
-      : undefined
+      ? `${match.championshipCategory.modality} ${match.championshipCategory.gender} - ${match.championshipCategory.ageRange?.label || match.championshipCategory.weight || ''}`
+      : undefined,
+    phase: match.phase
   };
 }
 
-// ⭐ FUNCIÓN PARA CALCULAR LA PROFUNDIDAD NECESARIA DEL BRACKET ⭐
+// ⭐ FUNCIÓN MEJORADA PARA CALCULAR PROFUNDIDAD ⭐
 function calculateBracketDepth(matches: MatchTransformed[]): number {
+  // El match final es el que no tiene nextMatchId
   const finalMatch = matches.find(m => m.nextMatchId === null);
   if (!finalMatch) {
     console.log('⚠️ No se encontró match final');
     return 1;
   }
   
-  console.log('📊 Final match encontrado:', finalMatch);
+  console.log('📊 Final match encontrado:', {
+    id: finalMatch.id,
+    phase: finalMatch.phase?.description,
+    order: finalMatch.phase?.order
+  });
   
   function getMaxDepth(matchId: number, currentDepth: number = 1): number {
-    const children = matches.filter(m => m.nextMatchId === matchId && m.id > 0); // Solo matches reales
+    // Buscar matches que tengan a este match como siguiente (nextMatchId)
+    const children = matches.filter(m => m.nextMatchId === matchId);
     
     console.log(`🌳 Depth ${currentDepth} - Match ID ${matchId} - Children:`, children.length);
     
@@ -165,86 +178,6 @@ function calculateBracketDepth(matches: MatchTransformed[]): number {
   const depth = getMaxDepth(finalMatch.id);
   console.log('📏 Profundidad total calculada:', depth);
   return depth;
-}
-
-// ⭐ FUNCIÓN MEJORADA PARA GENERAR BRACKET COMPLETO CON BYE MATCHES ⭐
-function generateCompleteBracket(realMatches: MatchTransformed[]): MatchTransformed[] {
-  const allMatches: MatchTransformed[] = [...realMatches];
-  let byeIdCounter = -1;
-  
-  // Calcular profundidad necesaria basada en matches reales
-  const maxDepth = calculateBracketDepth(realMatches);
-  
-  // Encontrar el match final (sin nextMatchId)
-  const finalMatch = realMatches.find(m => m.nextMatchId === null);
-  if (!finalMatch) return allMatches;
-  
-  // Función recursiva para completar el árbol
-  function ensureChildren(parentMatch: MatchTransformed, depth: number = 1): void {
-    const children = allMatches.filter(m => m.nextMatchId === parentMatch.id);
-    
-    // Solo generar hijos si no hemos alcanzado la profundidad máxima
-    if (children.length === 0 && depth < maxDepth) {
-      // Crear dos hijos fantasma
-      const childAkka: MatchTransformed = {
-        id: byeIdCounter--,
-        matchNumber: 0,
-        status: "BYE",
-        score1: null,
-        score2: null,
-        nextMatchId: parentMatch.id,
-        nextMatchSide: "Akka"
-      };
-      
-      const childAo: MatchTransformed = {
-        id: byeIdCounter--,
-        matchNumber: 0,
-        status: "BYE",
-        score1: null,
-        score2: null,
-        nextMatchId: parentMatch.id,
-        nextMatchSide: "Ao"
-      };
-      
-      allMatches.push(childAkka, childAo);
-      
-      // Recursivamente completar sus hijos
-      ensureChildren(childAkka, depth + 1);
-      ensureChildren(childAo, depth + 1);
-      
-    } else if (children.length === 1) {
-      // Si solo hay un hijo, crear el que falta
-      const existingChild = children[0]!;
-      const missingSide = existingChild.nextMatchSide === 'Akka' ? 'Ao' : 'Akka';
-      
-      const missingChild: MatchTransformed = {
-        id: byeIdCounter--,
-        matchNumber: 0,
-        status: "BYE",
-        score1: null,
-        score2: null,
-        nextMatchId: parentMatch.id,
-        nextMatchSide: missingSide
-      };
-      
-      allMatches.push(missingChild);
-      
-      // Recursivamente completar los hijos
-      ensureChildren(existingChild, depth + 1);
-      ensureChildren(missingChild, depth + 1);
-      
-    } else if (children.length === 2) {
-      // Ya tiene los dos hijos, seguir con la recursión solo si no hemos llegado al máximo
-      if (depth < maxDepth) {
-        children.forEach(child => ensureChildren(child, depth + 1));
-      }
-    }
-  }
-  
-  // Iniciar desde el match final con depth = 1
-  ensureChildren(finalMatch, 1);
-  
-  return allMatches;
 }
 
 // --- Computed properties ---
@@ -262,10 +195,9 @@ const realMatches = computed(() => {
   return filteredMatches.map(transformMatchFromAPI);
 });
 
-// Generar bracket completo con BYE matches
+// Todos los matches (sin generar ficticios)
 const allMatches = computed(() => {
-  if (realMatches.value.length === 0) return [];
-  return generateCompleteBracket(realMatches.value);
+  return realMatches.value;
 });
 
 // Final match (el nodo raíz del bracket - el que no tiene nextMatchId)
@@ -311,12 +243,13 @@ const handleOpenMatch = (match: MatchTransformed) => {
     matchNumber: match.matchNumber,
     status: match.status,
     competitor1: match.competitor1?.name,
-    competitor2: match.competitor2?.name
+    competitor2: match.competitor2?.name,
+    phase: match.phase?.description
   });
   
-  // No permitir clicks en matches BYE (vacíos) o con ID negativo
-  if (match.id <= 0 || match.status === 'BYE') {
-    console.warn('⚠️ Match no válido (BYE o ID <= 0)');
+  // No permitir clicks en matches BYE o sin ambos competidores
+  if (match.status === 'BYE') {
+    console.warn('⚠️ Match con BYE - no se puede abrir');
     return; 
   }
 
@@ -326,13 +259,12 @@ const handleOpenMatch = (match: MatchTransformed) => {
 
   // Solo permitir abrir modal a administradores
   if (!isAdmin) {
-    // alert('Solo los administradores pueden registrar o editar resultados de los combates.');
     return;
   }
 
-  if(match.status === 'Completado') {
-    // Administrador puede editar match completado
-    console.log('🔧 Administrador puede editar match completado');
+  if(match.status === 'Completado' && !match.competitor2) {
+    console.log('Match con BYE completado automáticamente');
+    return;
   }
   
   if (!match.competitor1 || !match.competitor2) {
@@ -365,7 +297,8 @@ const handleSaveResult = async (winnerId: number, scores: { scoreAkka: number; s
     matchId: currentMatch.id,
     matchNumber: currentMatch.matchNumber,
     winnerId,
-    scores
+    scores,
+    phase: currentMatch.phase?.description
   });
   
   try {
@@ -391,7 +324,23 @@ const handleCategoryChange = async () => {
     
     console.log('📋 Matches cargados para categoría:', selectedCategoryId.value);
     console.log('📊 Total matches:', championshipStore.matches.length);
-    console.log('🔢 IDs de matches disponibles:', championshipStore.matches.map(m => m.id));
+    
+    // Log detallado de la estructura
+    const byPhase = championshipStore.matches.reduce((acc, m) => {
+      const phase = m.phase?.description || 'Sin fase';
+      if (!acc[phase]) acc[phase] = [];
+      acc[phase].push({
+        id: m.id,
+        matchNumber: m.matchNumber,
+        akka: m.participantAkka?.student?.firstname,
+        ao: m.participantAo?.student?.firstname,
+        status: m.status,
+        nextMatch: m.nextMatchId
+      });
+      return acc;
+    }, {} as Record<string, any[]>);
+    
+    console.log('🔍 Matches por fase:', byPhase);
   }
 };
 
@@ -412,7 +361,6 @@ onMounted(async () => {
         
         console.log('📋 Matches iniciales cargados');
         console.log('📊 Total matches:', championshipStore.matches.length);
-        console.log('🔢 IDs de matches disponibles:', championshipStore.matches.map(m => m.id));
       }
     }
   }

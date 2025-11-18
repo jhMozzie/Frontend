@@ -57,7 +57,7 @@
             v-model.number="formData.ageRangeId"
             class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-red-500"
           >
-            <option v-if="ageRanges.length === 0" disabled value="0">Cargando rangos...</option>
+            <option v-if="ageRanges.length === 0" disabled :value="undefined">Cargando rangos de edad...</option>
             <option v-for="range in ageRanges" :key="range.id" :value="range.id">
               {{ range.label }} ({{ range.minAge }}-{{ range.maxAge }} años)
             </option>
@@ -136,8 +136,12 @@ import { storeToRefs } from 'pinia';
 
 // --- STORE ---
 const championshipStore = useChampionshipStore();
-const { belts } = storeToRefs(championshipStore);
-const { fetchBelts } = championshipStore;
+const { formData: categoryFormData } = storeToRefs(championshipStore);
+const { fetchCategoryFormData } = championshipStore;
+
+// Computed para acceder fácilmente a los datos
+const ageRanges = computed(() => categoryFormData.value?.ageRanges || []);
+const belts = computed(() => categoryFormData.value?.belts || []);
 
 // --- DEFINICIÓN DE PROPS ---
 const props = defineProps<{
@@ -158,9 +162,9 @@ const formData = ref<CreateChampionshipCategoryPayload>({
   code: '',
   modality: 'Kata',
   gender: 'Masculino',
-  beltMinId: 9,   // Valor por defecto (Marrón 3er Kyu ID)
-  beltMaxId: 12,  // Valor por defecto (Negro ID)
-  ageRangeId: 1,  // Valor por defecto (U14 ID)
+  beltMinId: 0,   // Se establecerá cuando se carguen los cinturones
+  beltMaxId: 0,   // Se establecerá cuando se carguen los cinturones
+  ageRangeId: 0,  // Se establecerá cuando se carguen los rangos de edad
   weight: null,
 });
 
@@ -176,33 +180,52 @@ watch(() => props.initialData, (newData) => {
       code: newData.code || '',
       modality: newData.modality || 'Kata',
       gender: newData.gender || 'Masculino',
-      beltMinId: newData.beltMinId || 9,
-      beltMaxId: newData.beltMaxId || 12,
-      ageRangeId: newData.ageRangeId || 1,
+      beltMinId: newData.beltMinId || 0,
+      beltMaxId: newData.beltMaxId || 0,
+      ageRangeId: newData.ageRangeId || 0,
       weight: newData.weight || null,
     };
   } else {
-    // Si no (modo Crear), resetea el formulario
+    // Si no (modo Crear), resetea el formulario con valores iniciales
     formData.value = {
-      code: '', modality: 'Kata', gender: 'Masculino', beltMinId: 9,
-      beltMaxId: 12, ageRangeId: 1, weight: null,
+      code: '', 
+      modality: 'Kata', 
+      gender: 'Masculino', 
+      beltMinId: 0,
+      beltMaxId: 0, 
+      ageRangeId: 0, 
+      weight: null,
     };
   }
 }, { immediate: true }); // 'immediate: true' ejecuta el watch al cargar
 
-// --- DATOS PARA LOS SELECTS (Simulados) ---
-// (En un caso real, cargarías esto con onMounted desde tus servicios)
-const ageRanges = ref([
-  { id: 1, label: 'U14 (12-13 años)', minAge: 12, maxAge: 13 },
-  { id: 2, label: 'Cadete (14-15 años)', minAge: 14, maxAge: 15 },
-  { id: 3, label: 'Junior (16-17 años)', minAge: 16, maxAge: 17 },
-  { id: 4, label: 'Sub-21 (18-20 años)', minAge: 18, maxAge: 20 },
-  { id: 5, label: 'Senior (18+ años)', minAge: 18, maxAge: 99 },
-]);
-
-// Cargar belts del backend
+// Cargar datos del backend
 onMounted(async () => {
-  await fetchBelts();
+  // Cargar datos del formulario (age ranges y belts) desde el backend
+  await fetchCategoryFormData();
+  
+  // Establecer valores por defecto una vez cargados los datos (solo si no estamos editando)
+  if (!isEditing.value && categoryFormData.value) {
+    // Establecer primer rango de edad si está disponible
+    if (ageRanges.value.length > 0 && formData.value.ageRangeId === 0) {
+      formData.value.ageRangeId = ageRanges.value[0]!.id;
+    }
+    
+    // Establecer cinturones por defecto si están disponibles
+    if (belts.value.length > 0) {
+      if (formData.value.beltMinId === 0) {
+        // Buscar cinturón Marrón (3er Kyu) o usar el primero disponible
+        const brownBelt = belts.value.find(b => b.kyuLevel === 3);
+        formData.value.beltMinId = brownBelt?.id || belts.value[0]!.id;
+      }
+      
+      if (formData.value.beltMaxId === 0) {
+        // Buscar cinturón Negro o usar el último disponible
+        const blackBelt = belts.value.find(b => b.name.toLowerCase().includes('negro'));
+        formData.value.beltMaxId = blackBelt?.id || belts.value[belts.value.length - 1]!.id;
+      }
+    }
+  }
 });
 
 

@@ -76,5 +76,19 @@ export const championshipCategoryService = {
       `/championship-categories/${categoryId}`
     );
     return data;
+  },
+
+  /**
+   * Obtiene los datos necesarios para el formulario de categorías
+   * (rangos de edad, cinturones, modalidades, géneros)
+   */
+  async getFormData() {
+    const { data } = await api.get<{
+      ageRanges: Array<{ id: number; label: string; minAge: number; maxAge: number }>;
+      belts: Array<{ id: number; name: string; kyuLevel: number }>;
+      modalities: string[];
+      genders: string[];
+    }>('/championship-categories/form-data');
+    return data;
   }
 };

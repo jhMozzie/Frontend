@@ -61,54 +61,70 @@
         </div>
 
         <div>
-          <div class="flex justify-between items-center mb-2">
-            <label class="block text-sm font-medium text-gray-700">Categorías Disponibles</label>
-            <div class="flex space-x-2 p-1 bg-gray-100 rounded-md text-sm">
-                <button 
-                    @click="categoryFilter = 'all'" 
-                    :class="['px-3 py-1 rounded-md transition', categoryFilter === 'all' ? 'bg-white shadow text-red-600' : 'text-gray-600 hover:bg-gray-200']"
-                >
-                    Todas
-                </button>
-                <button 
-                    @click="categoryFilter = 'Kumite'" 
-                    :class="['px-3 py-1 rounded-md transition', categoryFilter === 'Kumite' ? 'bg-white shadow text-red-600' : 'text-gray-600 hover:bg-gray-200']"
-                >
-                    Kumite
-                </button>
-                <button 
-                    @click="categoryFilter = 'Kata'" 
-                    :class="['px-3 py-1 rounded-md transition', categoryFilter === 'Kata' ? 'bg-white shadow text-red-600' : 'text-gray-600 hover:bg-gray-200']"
-                >
-                    Kata
-                </button>
-            </div>
+          <!-- Solo mostrar categorías si hay un estudiante seleccionado -->
+          <div v-if="selectedStudentId === 0 && !isEditing" class="text-center text-gray-500 py-8 border-2 border-dashed border-gray-300 rounded-md">
+            <LucideSearch class="w-8 h-8 mx-auto mb-2 text-gray-400" />
+            <p class="text-sm">Primero busca y selecciona un estudiante</p>
+            <p class="text-xs text-gray-400 mt-1">Las categorías disponibles se mostrarán según el cinturón del estudiante</p>
           </div>
 
-          <div v-if="categoriesLoading" class="text-center text-gray-500 py-4">
-            <LucideLoader2 class="w-5 h-5 animate-spin mx-auto" />
-          </div>
-          <div v-else-if="categoriesError" class="text-center text-red-500 py-4">
-            {{ categoriesError }}
-          </div>
-          <div v-else-if="filteredCategories.length === 0" class="text-center text-gray-500 py-4 border rounded-md">
-            No hay categorías disponibles con los filtros actuales.
-          </div>
-          <div v-else class="space-y-3 max-h-64 overflow-y-auto rounded-md border p-4">
-            <div v-for="category in filteredCategories" :key="category.id" class="flex items-center">
-              <input 
-                :id="`cat-${category.id}`" 
-                type="checkbox" 
-                :value="category.id"
-                v-model="selectedCategoryIds"
-                class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-              />
-              <label :for="`cat-${category.id}`" class="ml-3 text-sm text-gray-700 cursor-pointer">
-                <span class="font-medium">{{ category.code }}</span> - {{ generateCategoryName(category) }}
-                <span class="text-xs text-gray-500">({{ category.participantCount }} inscritos)</span>
+          <template v-else>
+            <div class="flex justify-between items-center mb-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Categorías Disponibles
+                <span v-if="selectedStudentKyu !== null" class="text-xs font-normal text-gray-500 ml-2">
+                  (Filtradas por cinturón del estudiante)
+                </span>
               </label>
+              <div class="flex space-x-2 p-1 bg-gray-100 rounded-md text-sm">
+                  <button 
+                      @click="categoryFilter = 'all'" 
+                      :class="['px-3 py-1 rounded-md transition', categoryFilter === 'all' ? 'bg-white shadow text-red-600' : 'text-gray-600 hover:bg-gray-200']"
+                  >
+                      Todas
+                  </button>
+                  <button 
+                      @click="categoryFilter = 'Kumite'" 
+                      :class="['px-3 py-1 rounded-md transition', categoryFilter === 'Kumite' ? 'bg-white shadow text-red-600' : 'text-gray-600 hover:bg-gray-200']"
+                  >
+                      Kumite
+                  </button>
+                  <button 
+                      @click="categoryFilter = 'Kata'" 
+                      :class="['px-3 py-1 rounded-md transition', categoryFilter === 'Kata' ? 'bg-white shadow text-red-600' : 'text-gray-600 hover:bg-gray-200']"
+                  >
+                      Kata
+                  </button>
+              </div>
             </div>
-          </div>
+
+            <div v-if="categoriesLoading" class="text-center text-gray-500 py-4">
+              <LucideLoader2 class="w-5 h-5 animate-spin mx-auto" />
+            </div>
+            <div v-else-if="categoriesError" class="text-center text-red-500 py-4">
+              {{ categoriesError }}
+            </div>
+            <div v-else-if="filteredCategories.length === 0" class="text-center text-gray-500 py-4 border rounded-md">
+              <LucideAlertCircle class="w-5 h-5 mx-auto mb-2 text-amber-500" />
+              <p class="text-sm">No hay categorías disponibles para este estudiante</p>
+              <p class="text-xs text-gray-400 mt-1">El cinturón del estudiante no coincide con ninguna categoría</p>
+            </div>
+            <div v-else class="space-y-3 max-h-64 overflow-y-auto rounded-md border p-4">
+              <div v-for="category in filteredCategories" :key="category.id" class="flex items-center">
+                <input 
+                  :id="`cat-${category.id}`" 
+                  type="checkbox" 
+                  :value="category.id"
+                  v-model="selectedCategoryIds"
+                  class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                />
+                <label :for="`cat-${category.id}`" class="ml-3 text-sm text-gray-700 cursor-pointer">
+                  <span class="font-medium">{{ category.code }}</span> - {{ generateCategoryName(category) }}
+                  <span class="text-xs text-gray-500">({{ category.participantCount }} inscritos)</span>
+                </label>
+              </div>
+            </div>
+          </template>
         </div>
         
         <div v-if="error" class="text-sm text-red-600">{{ error }}</div>
@@ -136,9 +152,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { LucideX, LucideLoader2, LucideSearch } from 'lucide-vue-next';
+import { LucideX, LucideLoader2, LucideSearch, LucideAlertCircle } from 'lucide-vue-next';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
 import { storeToRefs } from 'pinia';
+import { studentService } from '@/modules/students/services/students.service';
 import type { Inscription } from '@/modules/championships/types/participants.types';
 import type { ChampionshipCategoryListItem } from '@/modules/championships/types/championships-categories.types';
 
@@ -181,9 +198,10 @@ const {
   categoriesLoading, 
   categoriesError,
   studentsResults, 
-  studentsLoading 
+  studentsLoading,
+  belts
 } = storeToRefs(championshipStore) as any;
-const { fetchChampionshipCategories, searchStudents } = championshipStore as any; 
+const { fetchChampionshipCategories, searchStudents, fetchBelts } = championshipStore as any; 
 
 // --- ESTADO INTERNO DEL FORMULARIO ---
 const selectedStudentId = ref(0);
@@ -193,6 +211,7 @@ const categoryFilter = ref<'all' | 'Kumite' | 'Kata'>('all');
 
 const studentSearchQuery = ref(''); 
 const showStudentResults = ref(false); 
+const selectedStudentKyu = ref<number | null>(null);
 
 
 // --- LÓGICA DE EDICIÓN ---
@@ -238,10 +257,29 @@ watch(selectedCategoryIds, (newIds) => {
 
 // Lógica de categorías (filtrado y selección)
 const filteredCategories = computed(() => {
-    if (categoryFilter.value === 'all') {
-        return allCategories.value;
+    // First apply modality filter
+    let list = categoryFilter.value === 'all' ? allCategories.value.slice() : allCategories.value.filter((cat: ChampionshipCategoryListItem) => cat.modality === categoryFilter.value);
+
+    // If we don't have a selected student's belt or belts mapping, return modality-filtered list
+    if (!selectedStudentKyu.value || !belts || belts.value.length === 0) return list;
+
+    // Build mapping: belt name -> kyuLevel
+    const beltMap = new Map<string, number>();
+    for (const b of belts.value) {
+      if (b && b.name) beltMap.set(b.name, b.kyuLevel);
     }
-    return allCategories.value.filter((cat: ChampionshipCategoryListItem) => cat.modality === categoryFilter.value);
+
+    // Filter categories by whether the student's kyu falls within the category's belt range
+    return list.filter((cat: ChampionshipCategoryListItem) => {
+      const minKyu = beltMap.get(cat.beltMinName) ?? null;
+      const maxKyu = beltMap.get(cat.beltMaxName) ?? null;
+      if (minKyu === null || maxKyu === null) return true; // be permissive if mapping missing
+
+      const lower = Math.min(minKyu, maxKyu);
+      const upper = Math.max(minKyu, maxKyu);
+      const studentKyu = selectedStudentKyu.value as number;
+      return studentKyu >= lower && studentKyu <= upper;
+    });
 });
 
 // 💥 MODIFICACIÓN VISUAL: Añadimos un campo "Nuevo" si hay cambio
@@ -269,23 +307,40 @@ const unselectCategory = (categoryId: number) => {
 
 // --- LÓGICA DE ESTUDIANTES (BÚSQUEDA REAL DE API) ---
 const filteredStudents = computed<StudentSearchResult[]>(() => {
-    if (studentSearchQuery.value.length < 3 || studentsLoading.value) return [];
-    
-    console.log('🔍 Resultados de búsqueda en modal:', studentsResults.value);
+    // Reducido a 2 caracteres mínimo para buscar "Alberto" y encontrar todos los Albertos
+    if (studentSearchQuery.value.length < 2 || studentsLoading.value) return [];
     
     // Los resultados ya vienen filtrados por academia desde el backend
     return studentsResults.value || [];
 });
 
-const selectStudent = (id: number, name: string) => {
+const selectStudent = async (id: number, name: string) => {
     selectedStudentId.value = id;
     selectedStudentName.value = name;
-    studentSearchQuery.value = name; 
+    studentSearchQuery.value = name;
     showStudentResults.value = false;
+
+    // fetch student details to get belt/kyu information
+    try {
+      const resp = await studentService.getById(id);
+      // studentService.getById may return the Student directly or an object with { data }
+      // Normalize to a student object
+      const student = (resp && (resp as any).data) ? (resp as any).data : (resp as any);
+      if (student && student.belt && typeof student.belt.kyuLevel === 'number') {
+        selectedStudentKyu.value = student.belt.kyuLevel;
+      } else {
+        selectedStudentKyu.value = null;
+      }
+      // reset selected categories when student changes
+      selectedCategoryIds.value = [];
+    } catch (err) {
+      // if fetch fails, clear kyu so we don't accidentally filter out categories
+      selectedStudentKyu.value = null;
+    }
 };
 
 const searchStudentsDebounced = debounce(async (query: string) => {
-    if (query.length < 3) return;
+    if (query.length < 2) return;
     await searchStudents(query); 
     showStudentResults.value = true;
 }, 300);
@@ -325,6 +380,10 @@ const hideStudentResults = () => {
 onMounted(() => {
   if (allCategories.value.length === 0) {
     fetchChampionshipCategories(props.championshipId, 1, 999);
+  }
+  // Obtener mapeo de cinturones para filtrado por nivel
+  if (!belts.value || belts.value.length === 0) {
+    fetchBelts();
   }
 });
 

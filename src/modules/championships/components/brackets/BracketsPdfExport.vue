@@ -123,10 +123,11 @@ async function drawHeader(doc: jsPDF, titleLeft: string, titleRight: string, log
 function drawParticipantsTable(doc: jsPDF, participants: any[], startY = 70) {
   const margin = 20;
   
-  const body: RowInput[] = participants.map(p => [p.nr, p.nr + 100, p.nombre, p.club]);
+  // 💥 CAMBIO: Eliminada la columna "Startnr" (p.nr + 100)
+  const body: RowInput[] = participants.map(p => [p.nr, p.nombre, p.club]);
   autoTable(doc, {
     startY,
-    head: [['Nr.', 'Startnr', 'Nombre', 'Club']],
+    head: [['Nr.', 'Nombre', 'Club']],
     body,
     styles: { 
       fontSize: 9, 
@@ -142,9 +143,8 @@ function drawParticipantsTable(doc: jsPDF, participants: any[], startY = 70) {
     },
     columnStyles: { 
       0: { halign: 'center', cellWidth: 20 },
-      1: { halign: 'center', cellWidth: 30 },
-      2: { cellWidth: 'auto' },
-      3: { cellWidth: 'auto' }
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 'auto' }
     },
     margin: { left: margin, right: margin },
     tableLineColor: [0, 0, 0],
@@ -162,8 +162,8 @@ function drawMatchBox(
   h: number,
   labelTop: string,
   labelBottom: string,
-  startNumTop?: number,
-  startNumBottom?: number,
+  academyTop: string,
+  academyBottom: string,
   scoreTop?: string | number | null,
   scoreBottom?: string | number | null,
   winnerId?: number | null,
@@ -176,12 +176,9 @@ function drawMatchBox(
   const isTopWinner = winnerId && topId && winnerId === topId;
   const isTopEmpty = !labelTop || labelTop === 'Pendiente' || labelTop === '';
   
-  // Fondo si es ganador o si está vacío
+  // Fondo: solo si es ganador, sino blanco
   if (isTopWinner) {
-    doc.setFillColor(255, 200, 200);
-    doc.rect(x, y, w, halfH, 'F');
-  } else if (isTopEmpty) {
-    doc.setFillColor(245, 245, 245); // Gris claro para slots vacíos
+    doc.setFillColor(255, 200, 200); // Fondo rojo si gana
     doc.rect(x, y, w, halfH, 'F');
   }
   
@@ -192,49 +189,45 @@ function drawMatchBox(
   
   // Contenido superior
   if (!isTopEmpty) {
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    
-    let textX = x + 3;
-    
-    // Número de inicio en rojo
-    if (startNumTop) {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(255, 0, 0);
-      doc.text(String(startNumTop), textX, y + halfH - 4);
-      textX += 15;
+    // Color del texto: Negro si es ganador, Rojo si no
+    if (isTopWinner) {
+      doc.setTextColor(0, 0, 0); // Negro para ganador
+    } else {
+      doc.setTextColor(255, 0, 0); // Rojo para competidor normal
     }
     
+    const textX = x + 3;
+    
     // Nombre
-    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(8);
     doc.setFont('helvetica', isTopWinner ? 'bold' : 'normal');
     const displayName = labelTop.length > 25 ? labelTop.substring(0, 25) + '...' : labelTop;
-    doc.text(displayName, textX, y + halfH - 4);
+    doc.text(displayName, textX, y + halfH / 2 - 1);
     
-    // Puntaje
+    // Academia (debajo del nombre, más pequeña)
+    if (academyTop) {
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      const displayAcademy = academyTop.length > 25 ? academyTop.substring(0, 25) + '...' : academyTop;
+      doc.text(displayAcademy, textX, y + halfH / 2 + 5);
+    }
+    
+    // Puntaje (mismo color que el texto)
     if (scoreTop != null) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text(String(scoreTop), x + w - 4, y + halfH - 4, { align: 'right' });
+      doc.text(String(scoreTop), x + w - 4, y + halfH / 2 + 2, { align: 'right' });
     }
-  } else {
-    // Mostrar "Pendiente" centrado
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Pendiente', x + w / 2, y + halfH - 4, { align: 'center' });
   }
+  // Si está vacío, no mostrar nada (ni "Pendiente")
 
   // Parte inferior (Ao/Azul)
   const isBottomWinner = winnerId && bottomId && winnerId === bottomId;
   const isBottomEmpty = !labelBottom || labelBottom === 'Pendiente' || labelBottom === '';
   
-  // Fondo si es ganador o si está vacío
+  // Fondo: solo si es ganador, sino blanco
   if (isBottomWinner) {
-    doc.setFillColor(200, 220, 255);
-    doc.rect(x, y + halfH, w, halfH, 'F');
-  } else if (isBottomEmpty) {
-    doc.setFillColor(245, 245, 245); // Gris claro para slots vacíos
+    doc.setFillColor(200, 220, 255); // Fondo azul si gana
     doc.rect(x, y + halfH, w, halfH, 'F');
   }
   
@@ -245,38 +238,37 @@ function drawMatchBox(
   
   // Contenido inferior
   if (!isBottomEmpty) {
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    
-    let textX = x + 3;
-    
-    // Número de inicio en azul
-    if (startNumBottom) {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 255);
-      doc.text(String(startNumBottom), textX, y + h - 4);
-      textX += 15;
+    // Color del texto: Negro si es ganador, Azul si no
+    if (isBottomWinner) {
+      doc.setTextColor(0, 0, 0); // Negro para ganador
+    } else {
+      doc.setTextColor(0, 0, 255); // Azul para competidor normal
     }
     
+    const textX = x + 3;
+    
     // Nombre
-    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(8);
     doc.setFont('helvetica', isBottomWinner ? 'bold' : 'normal');
     const displayNameBottom = labelBottom.length > 25 ? labelBottom.substring(0, 25) + '...' : labelBottom;
-    doc.text(displayNameBottom, textX, y + h - 4);
+    doc.text(displayNameBottom, textX, y + halfH + halfH / 2 - 1);
     
-    // Puntaje
+    // Academia (debajo del nombre, más pequeña)
+    if (academyBottom) {
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      const displayAcademyBottom = academyBottom.length > 25 ? academyBottom.substring(0, 25) + '...' : academyBottom;
+      doc.text(displayAcademyBottom, textX, y + halfH + halfH / 2 + 5);
+    }
+    
+    // Puntaje (mismo color que el texto)
     if (scoreBottom != null) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text(String(scoreBottom), x + w - 4, y + h - 4, { align: 'right' });
+      doc.text(String(scoreBottom), x + w - 4, y + halfH + halfH / 2 + 2, { align: 'right' });
     }
-  } else {
-    // Mostrar "Pendiente" centrado
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Pendiente', x + w / 2, y + h - 4, { align: 'center' });
   }
+  // Si está vacío, no mostrar nada (ni "Pendiente")
   
   // Resetear
   doc.setTextColor(0, 0, 0);
@@ -284,95 +276,13 @@ function drawMatchBox(
   doc.setFont('helvetica', 'normal');
 }
 
-/** Calcular profundidad del bracket */
-function calculateBracketDepth(matches: any[]): number {
-  const finalMatch = matches.find(m => m.nextMatchId === null);
-  if (!finalMatch) return 1;
-  
-  function getMaxDepth(matchId: number, currentDepth: number = 1): number {
-    const children = matches.filter(m => m.nextMatchId === matchId && m.id > 0);
-    if (children.length === 0) return currentDepth;
-    
-    const childDepths = children.map(child => getMaxDepth(child.id, currentDepth + 1));
-    return Math.max(...childDepths);
-  }
-  
-  return getMaxDepth(finalMatch.id);
-}
-
-/** Generar bracket completo con matches BYE (vacíos) */
+/** 
+ * 💥 NO generar matches ficticios - usar SOLO los matches reales del backend
+ * El backend ya maneja correctamente la estructura del bracket con matches vacíos
+ */
 function generateCompleteBracket(realMatches: any[]): any[] {
-  const allMatches: any[] = [...realMatches];
-  let byeIdCounter = -1;
-  
-  const maxDepth = calculateBracketDepth(realMatches);
-  const finalMatch = realMatches.find(m => m.nextMatchId === null);
-  if (!finalMatch) return allMatches;
-  
-  function ensureChildren(parentMatch: any, depth: number = 1): void {
-    const children = allMatches.filter(m => m.nextMatchId === parentMatch.id);
-    
-    if (children.length === 0 && depth < maxDepth) {
-      // Crear dos hijos vacíos
-      const childAkka = {
-        id: byeIdCounter--,
-        matchNumber: 0,
-        status: "BYE",
-        participantAkka: null,
-        participantAo: null,
-        scoreAkka: null,
-        scoreAo: null,
-        nextMatchId: parentMatch.id,
-        nextMatchSide: "Akka"
-      };
-      
-      const childAo = {
-        id: byeIdCounter--,
-        matchNumber: 0,
-        status: "BYE",
-        participantAkka: null,
-        participantAo: null,
-        scoreAkka: null,
-        scoreAo: null,
-        nextMatchId: parentMatch.id,
-        nextMatchSide: "Ao"
-      };
-      
-      allMatches.push(childAkka, childAo);
-      ensureChildren(childAkka, depth + 1);
-      ensureChildren(childAo, depth + 1);
-      
-    } else if (children.length === 1) {
-      // Si solo hay un hijo, crear el que falta
-      const existingChild = children[0]!;
-      const missingSide = existingChild.nextMatchSide === 'Akka' ? 'Ao' : 'Akka';
-      
-      const missingChild = {
-        id: byeIdCounter--,
-        matchNumber: 0,
-        status: "BYE",
-        participantAkka: null,
-        participantAo: null,
-        scoreAkka: null,
-        scoreAo: null,
-        nextMatchId: parentMatch.id,
-        nextMatchSide: missingSide
-      };
-      
-      allMatches.push(missingChild);
-      ensureChildren(existingChild, depth + 1);
-      ensureChildren(missingChild, depth + 1);
-      
-    } else if (children.length === 2) {
-      // Ya tiene los dos hijos, seguir con la recursión
-      if (depth < maxDepth) {
-        children.forEach(child => ensureChildren(child, depth + 1));
-      }
-    }
-  }
-  
-  ensureChildren(finalMatch, 1);
-  return allMatches;
+  // Simplemente retornar los matches reales sin agregar nada ficticio
+  return realMatches;
 }
 
 /** Construir árbol a partir de los matches (incluyendo BYE) */
@@ -470,13 +380,13 @@ function drawMatchRecursive(
     ? `${match.participantAo.student?.firstname ?? ''} ${match.participantAo.student?.lastname ?? ''}`.trim()
     : '';
   
-  const startNumTop = match.participantAkka?.id ? match.participantAkka.id + 100 : undefined;
-  const startNumBottom = match.participantAo?.id ? match.participantAo.id + 100 : undefined;
+  const academyTop = match.participantAkka?.student?.academy?.name ?? '';
+  const academyBottom = match.participantAo?.student?.academy?.name ?? '';
   
   drawMatchBox(
     doc, x, y, boxW, boxH,
     top, bot,
-    startNumTop, startNumBottom,
+    academyTop, academyBottom,
     match.scoreAkka, match.scoreAo,
     match.winnerId,
     match.participantAkka?.id,
@@ -560,8 +470,11 @@ function drawBracket(doc: jsPDF, matches: any[], startY: number) {
   // Calcular dimensiones totales del árbol
   const treeDim = calculateTreeDimensions(root, boxH, vGap);
   
-  // Posición inicial X FIJA (derecha, donde está la final)
-  const startX = pageWidth - margin - boxW;
+  // 💥 CAMBIO: Calcular el ancho total necesario para el bracket
+  const totalBracketWidth = (treeDim.width * boxW) + ((treeDim.width - 1) * hGap);
+  
+  // 💥 CAMBIO: Posición inicial X desde la IZQUIERDA en lugar de derecha
+  const startX = margin + totalBracketWidth - boxW;
   
   // Verificar si el bracket cabe verticalmente en esta página
   const availableHeight = pageHeight - startY - margin;
@@ -589,7 +502,6 @@ function drawBracket(doc: jsPDF, matches: any[], startY: number) {
   
   if (treeDim.height > maxHeightPerPage) {
     // El bracket es demasiado alto incluso para una página nueva
-    // Centrar lo mejor posible
     const startTreeY = finalStartY + 10;
     drawMatchRecursive(doc, root, startX, startTreeY, boxW, boxH, hGap, vGap);
     return pageHeight - margin; // Indicar que se usó toda la página

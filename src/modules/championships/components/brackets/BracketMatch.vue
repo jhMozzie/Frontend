@@ -1,7 +1,37 @@
 <template>
-  <!-- Match real (id positivo) -->
+  <!-- 💥 SI ES BYE ESTRUCTURAL: Renderizar bracket VISIBLE pero opaco/vacío -->
   <div
-    v-if="match.id > 0"
+    v-if="isStructuralBye"
+    class="bg-gray-200 border-2 border-gray-300 rounded-md p-3 w-64 opacity-60 pointer-events-none shadow-sm"
+  >
+    <!-- Header vacío -->
+    <div class="flex justify-between items-center mb-2">
+      <span class="text-xs text-gray-500 font-medium">BYE</span>
+      <span class="text-xs text-gray-400">&nbsp;</span>
+    </div>
+    
+    <!-- Competidor 1 vacío -->
+    <div class="flex items-center justify-between p-2 rounded bg-gray-300">
+      <div class="flex-1 overflow-hidden mr-2">
+        <p class="font-medium text-sm text-gray-400">&nbsp;</p>
+        <p class="text-xs text-gray-400">&nbsp;</p>
+      </div>
+    </div>
+    
+    <div class="h-px bg-gray-300 my-1.5"></div>
+    
+    <!-- Competidor 2 vacío -->
+    <div class="flex items-center justify-between p-2 rounded bg-gray-300">
+      <div class="flex-1 overflow-hidden mr-2">
+        <p class="font-medium text-sm text-gray-400">&nbsp;</p>
+        <p class="text-xs text-gray-400">&nbsp;</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Match real (id positivo y NO es BYE) -->
+  <div
+    v-else-if="match.id > 0 && !isStructuralBye"
     :class="[
       'bg-white border border-gray-300 rounded-md p-3 w-64 shadow-sm transition-shadow',
       'hover:shadow-lg cursor-pointer'
@@ -20,7 +50,6 @@
         <p class="font-medium text-sm text-gray-900 truncate">{{ match.competitor1?.name || "Pendiente" }}</p>
         <p v-if="match.competitor1?.academy" class="text-xs text-gray-500 truncate">{{ match.competitor1.academy }}</p>
       </div>
-      <!-- DEBUG: Mostrar siempre el score si existe -->
       <span 
         v-if="match.score1 !== null && match.score1 !== undefined" 
         :class="[
@@ -40,7 +69,6 @@
         <p class="font-medium text-sm text-gray-900 truncate">{{ match.competitor2?.name || "Pendiente" }}</p>
         <p v-if="match.competitor2?.academy" class="text-xs text-gray-500 truncate">{{ match.competitor2.academy }}</p>
       </div>
-      <!-- DEBUG: Mostrar siempre el score si existe -->
       <span 
         v-if="match.score2 !== null && match.score2 !== undefined" 
         :class="[
@@ -54,37 +82,33 @@
     </div>
   </div>
   
-  <!-- Match BYE (fantasma vacío pero con estructura de match) -->
-  <div v-else class="bg-white border border-gray-200 rounded-md p-3 w-64 shadow-sm opacity-70">
+  <!-- Match BYE fantasma (ID negativo) - VISIBLE pero opaco/vacío -->
+  <div v-else class="bg-gray-200 border-2 border-gray-300 rounded-md p-3 w-64 opacity-60 pointer-events-none shadow-sm">
     <div class="flex justify-between items-center mb-2">
-      <span class="text-xs text-gray-400 invisible">Match #0</span>
-      <span class="text-xs text-gray-400 invisible">-</span>
+      <span class="text-xs text-gray-500 font-medium">BYE</span>
+      <span class="text-xs text-gray-400">&nbsp;</span>
     </div>
     
-    <!-- Competidor 1 vacío -->
-    <div class="flex items-center justify-between p-2 rounded bg-gray-50">
+    <div class="flex items-center justify-between p-2 rounded bg-gray-300">
       <div class="flex-1 overflow-hidden mr-2">
-        <p class="font-medium text-sm text-gray-300 truncate">-</p>
-        <p class="text-xs text-gray-200 truncate">-</p>
+        <p class="font-medium text-sm text-gray-400">&nbsp;</p>
+        <p class="text-xs text-gray-400">&nbsp;</p>
       </div>
-      <span class="font-bold text-lg text-gray-300 invisible">0</span>
     </div>
     
-    <div class="h-px bg-gray-200 my-1.5"></div>
+    <div class="h-px bg-gray-300 my-1.5"></div>
     
-    <!-- Competidor 2 vacío -->
-    <div class="flex items-center justify-between p-2 rounded bg-gray-50">
+    <div class="flex items-center justify-between p-2 rounded bg-gray-300">
       <div class="flex-1 overflow-hidden mr-2">
-        <p class="font-medium text-sm text-gray-300 truncate">-</p>
-        <p class="text-xs text-gray-200 truncate">-</p>
+        <p class="font-medium text-sm text-gray-400">&nbsp;</p>
+        <p class="text-xs text-gray-400">&nbsp;</p>
       </div>
-      <span class="font-bold text-lg text-gray-300 invisible">0</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { PropType } from 'vue';
+import { computed, type PropType } from 'vue';
 
 // --- Tipos Locales (Necesarios para el Match) ---
 interface Competitor { id: number; name: string; academy?: string; }
@@ -100,7 +124,20 @@ const props = defineProps({
 
 const emit = defineEmits(['openMatch']);
 
-// --- FUNCIONES DE ESTILO ---
+// --- 💥 LÓGICA SIMPLIFICADA: Detectar si es un BYE estructural ---
+
+/**
+ * Un match es BYE estructural si:
+ * 1. Tiene status "BYE" (asignado en ChampionshipsBracketsView)
+ */
+const isStructuralBye = computed(() => {
+  const { status } = props.match;
+  
+  // Los matches BYE vienen con status 'BYE' y sin competidores
+  return status === 'BYE';
+});
+
+// --- FUNCIONES DE ESTILO (para matches normales) ---
 
 const getStatusLabel = (status: string): string => {
   const labels: { [key: string]: string } = { 
@@ -132,7 +169,7 @@ const getCompetitorClasses = (match: MatchTransformed, competitor: Competitor | 
   if (match.status === 'Completado' && competitor && match.winner !== competitor.id) {
     return `${base} bg-red-50 opacity-70`;
   }
-  // Si es un slot vacío (Pendiente/BYE)
+  // Si es un slot vacío (Pendiente)
   if (!competitor) {
     return `${base} bg-gray-100`;
   }

@@ -23,15 +23,14 @@
           :class="{ 'translate-y-0': true }"
         ></div>
         
-        <!-- 💥 NUEVO: Si el hijo es BYE, saltar al siguiente nivel -->
+        <!-- 💥 SIEMPRE renderizar el hijo (incluso si es BYE) -->
         <BracketNode 
-          v-if="effectiveChildAkka" 
-          :match="effectiveChildAkka" 
+          v-if="childAkka" 
+          :match="childAkka" 
           :all-matches="allMatches" 
           @open-match="$emit('openMatch', $event)" 
           :is-root="false"
         />
-        <div v-else class="w-64 h-24 opacity-0"></div>
       </div>
 
       <!-- Hijo Ao (inferior) -->
@@ -43,15 +42,14 @@
           class="absolute w-0.5 h-[calc(50%+22px)] bg-gray-300 right-[-25px] top-1/2 -translate-y-full"
         ></div>
         
-        <!-- 💥 NUEVO: Si el hijo es BYE, saltar al siguiente nivel -->
+        <!-- 💥 SIEMPRE renderizar el hijo (incluso si es BYE) -->
         <BracketNode 
-          v-if="effectiveChildAo" 
-          :match="effectiveChildAo" 
+          v-if="childAo" 
+          :match="childAo" 
           :all-matches="allMatches"
           @open-match="$emit('openMatch', $event)"
           :is-root="false"
         />
-        <div v-else class="w-64 h-24 opacity-0"></div>
       </div>
     </div>
   </div>
@@ -84,7 +82,8 @@ const props = defineProps({
 
 defineEmits(['openMatch']);
 
-// --- LÓGICA ORIGINAL ---
+// --- 💥 LÓGICA SIMPLIFICADA: SIEMPRE RENDERIZAR HIJOS (INCLUYENDO BYE) ---
+
 const childAkka = computed(() => {
   return props.allMatches.find(m => m.nextMatchId === props.match.id && m.nextMatchSide === 'Akka');
 });
@@ -93,51 +92,8 @@ const childAo = computed(() => {
   return props.allMatches.find(m => m.nextMatchId === props.match.id && m.nextMatchSide === 'Ao');
 });
 
-// --- 💥 NUEVA LÓGICA: SALTAR MATCHES CON BYE ---
-
-/**
- * Función recursiva que busca el primer match real (sin BYE) en la cadena
- * Si un match tiene BYE, salta a sus hijos hasta encontrar un match real
- */
-function getEffectiveMatch(match: MatchTransformed | undefined): MatchTransformed | null {
-  if (!match) return null;
-  
-  // Si el match tiene BYE (solo un participante y está completado), saltar a sus hijos
-  const isByeMatch = match.status === 'BYE' || 
-                     (match.status === 'Completado' && 
-                      ((match.competitor1 && !match.competitor2) || 
-                       (!match.competitor1 && match.competitor2)));
-  
-  if (isByeMatch) {
-    // Buscar los hijos de este match con BYE
-    const byeChildAkka = props.allMatches.find(m => m.nextMatchId === match.id && m.nextMatchSide === 'Akka');
-    const byeChildAo = props.allMatches.find(m => m.nextMatchId === match.id && m.nextMatchSide === 'Ao');
-    
-    // Intentar obtener el match efectivo de cualquiera de los hijos
-    const effectiveFromAkka = getEffectiveMatch(byeChildAkka);
-    if (effectiveFromAkka) return effectiveFromAkka;
-    
-    const effectiveFromAo = getEffectiveMatch(byeChildAo);
-    if (effectiveFromAo) return effectiveFromAo;
-    
-    return null; // No hay match real detrás del BYE
-  }
-  
-  // Si no es BYE, retornar el match actual
-  return match;
-}
-
-// Computed que retorna el match efectivo (saltando BYEs)
-const effectiveChildAkka = computed(() => {
-  return getEffectiveMatch(childAkka.value);
-});
-
-const effectiveChildAo = computed(() => {
-  return getEffectiveMatch(childAo.value);
-});
-
-// Verificar si este nodo tiene hijos visuales (después de saltar BYEs)
+// Verificar si este nodo tiene hijos (sin saltar BYEs)
 const hasChildren = computed(() => {
-  return effectiveChildAkka.value || effectiveChildAo.value;
+  return childAkka.value || childAo.value;
 });
 </script>

@@ -168,9 +168,32 @@ function drawMatchBox(
   scoreBottom?: string | number | null,
   winnerId?: number | null,
   topId?: number,
-  bottomId?: number
+  bottomId?: number,
+  isBye: boolean = false
 ) {
   const halfH = h / 2;
+  
+  // 💥 SI ES BYE: Dibujar caja vacía con fondo gris claro (sin texto)
+  if (isBye) {
+    // Fondo gris para indicar BYE
+    doc.setFillColor(230, 230, 230);
+    doc.rect(x, y, w, h, 'FD'); // F = fill, D = draw border
+    
+    // Borde completo
+    doc.setDrawColor(0);
+    doc.setLineWidth(1);
+    doc.rect(x, y, w, h);
+    
+    // Línea divisoria en el medio
+    doc.line(x, y + halfH, x + w, y + halfH);
+    
+    // No mostrar texto - caja completamente vacía
+    
+    // Resetear y salir
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    return;
+  }
   
   // Parte superior (Akka/Rojo)
   const isTopWinner = winnerId && topId && winnerId === topId;
@@ -285,10 +308,40 @@ function generateCompleteBracket(realMatches: any[]): any[] {
   return realMatches;
 }
 
+/** 
+ * 💥 TRANSFORMAR MATCHES - Eliminar datos de competidores en matches BYE
+ * Los matches BYE deben mostrarse vacíos en el PDF
+ */
+function transformMatchesForPdf(matches: any[]): any[] {
+  return matches.map(match => {
+    // Detectar si es un match con BYE
+    const hasBye = (match.participantAkkaId && !match.participantAoId) || 
+                   (!match.participantAkkaId && match.participantAoId);
+    
+    // Si es un match BYE, retornar sin competidores (vacío)
+    if (hasBye && match.status === 'Completado') {
+      return {
+        ...match,
+        participantAkka: null,  // Eliminar competidor
+        participantAo: null,     // Eliminar competidor
+        scoreAkka: null,
+        scoreAo: null,
+        status: 'BYE'
+      };
+    }
+    
+    // Match normal - retornar sin cambios
+    return match;
+  });
+}
+
 /** Construir árbol a partir de los matches (incluyendo BYE) */
 function buildMatchTree(matches: any[]) {
+  // 💥 Transformar matches para eliminar datos en BYE
+  const transformedMatches = transformMatchesForPdf(matches);
+  
   // Generar bracket completo con matches vacíos
-  const completeMatches = generateCompleteBracket(matches);
+  const completeMatches = generateCompleteBracket(transformedMatches);
   
   const map = new Map<number, any>();
   completeMatches.forEach((m) => {
@@ -383,6 +436,9 @@ function drawMatchRecursive(
   const academyTop = match.participantAkka?.student?.academy?.name ?? '';
   const academyBottom = match.participantAo?.student?.academy?.name ?? '';
   
+  // 💥 Detectar si es BYE
+  const isBye = match.status === 'BYE';
+  
   drawMatchBox(
     doc, x, y, boxW, boxH,
     top, bot,
@@ -390,7 +446,8 @@ function drawMatchRecursive(
     match.scoreAkka, match.scoreAo,
     match.winnerId,
     match.participantAkka?.id,
-    match.participantAo?.id
+    match.participantAo?.id,
+    isBye
   );
   
   // Dibujar conectores desde los hijos hacia el padre (estilo clásico de bracket)

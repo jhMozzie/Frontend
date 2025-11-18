@@ -119,6 +119,28 @@ function transformMatchFromAPI(match: Match): MatchTransformed {
   const hasBye = (match.participantAkkaId && !match.participantAoId) || 
                  (!match.participantAkkaId && match.participantAoId);
   
+  // Si es un match BYE, retornar estructura vacía (sin competidores)
+  if (hasBye && match.status === 'Completado') {
+    return {
+      id: match.id,
+      matchNumber: match.matchNumber,
+      competitor1: undefined, // NO mostrar al competidor en el match BYE
+      competitor2: undefined,
+      winner: match.winnerId || undefined,
+      score1: null,
+      score2: null,
+      status: 'BYE',
+      nextMatchId: match.nextMatchId,
+      nextMatchSide: match.nextMatchSide,
+      modality: match.championshipCategory?.modality,
+      categoryInfo: match.championshipCategory 
+        ? `${match.championshipCategory.modality} ${match.championshipCategory.gender} - ${match.championshipCategory.ageRange?.label || match.championshipCategory.weight || ''}`
+        : undefined,
+      phase: match.phase
+    };
+  }
+  
+  // Match normal (con dos competidores o pendiente)
   return {
     id: match.id,
     matchNumber: match.matchNumber,
@@ -135,7 +157,7 @@ function transformMatchFromAPI(match: Match): MatchTransformed {
     winner: match.winnerId || undefined,
     score1: match.scoreAkka,
     score2: match.scoreAo,
-    status: hasBye && match.status === 'Completado' ? 'BYE' : match.status,
+    status: match.status,
     nextMatchId: match.nextMatchId,
     nextMatchSide: match.nextMatchSide,
     modality: match.championshipCategory?.modality,

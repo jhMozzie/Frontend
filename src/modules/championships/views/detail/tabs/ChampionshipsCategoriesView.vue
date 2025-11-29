@@ -78,7 +78,14 @@
         <div v-for="categoria in paginatedCategorias" :key="categoria.id"
              class="p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex items-start justify-between gap-4">
           <div class="flex-1">
-            <h3 class="font-semibold text-lg mb-2 line-clamp-1">{{ generateCategoryName(categoria) }}</h3>
+            <!-- Título principal: código + modalidad + género -->
+            <h3 class="font-semibold text-lg mb-1 line-clamp-1">
+              {{ categoria.code ? `${categoria.code} - ` : '' }}{{ categoria.modality }} {{ categoria.gender }}
+            </h3>
+            <!-- Subtítulo: rango de edad y rango de cinturones (mostrar solo edades y rangos de grado) -->
+            <p class="text-sm text-gray-500 mb-2">
+              {{ categoria.ageRangeLabel }} • De {{ extractBeltRank(categoria.beltMinName) }} hasta {{ extractBeltRank(categoria.beltMaxName) }}
+            </p>
             <div class="flex items-center gap-2 text-gray-500">
               <LucideUsers class="w-4 h-4 shrink-0" />
               <span class="text-sm">{{ categoria.participantCount }} participantes</span>
@@ -180,7 +187,7 @@ const filteredCategorias = computed<ChampionshipCategoryListItem[]>(() => {
   }
   return championshipCategories.value.filter((cat: ChampionshipCategoryListItem) => {
     const lowerSearch = searchTerm.value.toLowerCase();
-    const descriptiveName = generateCategoryName(cat).toLowerCase();
+    const descriptiveName = composeSearchText(cat).toLowerCase();
     const matchesSearch = descriptiveName.includes(lowerSearch) || (cat.code && cat.code.toLowerCase().includes(lowerSearch));
     const matchesModality = filters.value.modality === 'all' || cat.modality === filters.value.modality;
     const matchesAge = filters.value.ageRangeLabel === 'all' || cat.ageRangeLabel === filters.value.ageRangeLabel;
@@ -261,11 +268,29 @@ const handleGenerateBrackets = async () => {
 };
 
 // --- Funciones Auxiliares (sin cambios) ---
-function generateCategoryName(cat: ChampionshipCategoryListItem): string {
-    let name = `${cat.modality} ${cat.gender} ${cat.ageRangeLabel}`;
-    if (cat.modality === 'Kumite' && cat.weight) {
-        name += ` ${cat.weight}`;
-    }
-    return name;
+function composeSearchText(cat: ChampionshipCategoryListItem): string {
+  return [
+    cat.code ?? '',
+    cat.modality,
+    cat.gender,
+    cat.ageRangeLabel,
+    cat.weight ?? '',
+    cat.beltMinName,
+    cat.beltMaxName,
+  ].filter(Boolean).join(' ');
+}
+
+/**
+ * Extrae la parte de grado (ej. "7mo Kyu") desde el nombre completo del cinturón.
+ * Si no encuentra un patrón numérico, intenta detectar "negro" u devuelve el texto final.
+ */
+function extractBeltRank(name?: string): string {
+  if (!name) return '';
+  const rankRegex = /(\d+(?:er|ro|to|mo)?\s*[Kk]yu)/;
+  const m = name.match(rankRegex);
+  if (m && m[1]) return m[1].toLowerCase();
+  if (/negro/i.test(name)) return 'negro';
+  const parts = name.trim().split(/\s+/);
+  return parts.slice(-2).join(' ').toLowerCase();
 }
 </script>

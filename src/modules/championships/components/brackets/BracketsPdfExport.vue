@@ -1,8 +1,10 @@
 <template>
-  <button 
-    @click="exportPdf" 
+  <button
+    ref="exportBtn"
+    @click="onButtonClick"
     :disabled="isGenerating"
-    class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+    class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 relative"
+    style="z-index:30;"
   >
     <FileDown class="w-4 h-4" />
     <span v-if="isGenerating">Generando PDF...</span>
@@ -11,12 +13,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { FileDown } from 'lucide-vue-next';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { RowInput } from 'jspdf-autotable';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
+import { matchService } from '@/modules/championships/services/matches.service';
 
 const props = defineProps<{
   championshipId: number;
@@ -25,640 +27,413 @@ const props = defineProps<{
 }>();
 
 const isGenerating = ref(false);
+const exportBtn = ref<HTMLButtonElement | null>(null);
 const championshipStore = useChampionshipStore();
 
-/** Util: agrupa por categoría */
+function onButtonClick() {
+  if (!isGenerating.value) exportPdf();
+}
+
+onMounted(() => {
+  nextTick(() => {
+    if (!exportBtn.value) return;
+    exportBtn.value.addEventListener('click', () => {});
+    exportBtn.value.onclick = () => {
+      if (!isGenerating.value) exportPdf();
+    };
+  });
+});
+
+// -----------------------------------------------------------------------------
+// HELPERS BÁSICOS
+// -----------------------------------------------------------------------------
 function groupByCategory(matches: any[]) {
   const map = new Map<number, any[]>();
   for (const m of matches) {
-    const id = m.championshipCategoryId;
-    if (!map.has(id)) map.set(id, []);
-    map.get(id)!.push(m);
+    if (!map.has(m.championshipCategoryId)) map.set(m.championshipCategoryId, []);
+    map.get(m.championshipCategoryId)?.push(m);
   }
   return map;
 }
 
-
-
-/** Util: saca participantes únicos con detalle */
 function extractParticipants(matches: any[]) {
-  const key = (p: any) => p?.id ?? p?.studentId ?? Math.random();
-  const map = new Map<number, any>();
-  const add = (p: any) => {
+  const map = new Map();
+  const push = (p: any) => {
     if (!p) return;
-    const k = key(p);
-    if (!map.has(k)) {
-      map.set(k, {
+    if (!map.has(p.id)) {
+      map.set(p.id, {
         id: p.id,
-        nombre: `${p.student?.firstname ?? ''} ${p.student?.lastname ?? ''}`.trim() || '(Sin nombre)',
-        club: p.student?.academy?.name ?? 'Sin academia',
+        nombre: `${p.student?.firstname ?? ''} ${p.student?.lastname ?? ''}`.trim(),
+        club: p.student?.academy?.name ?? 'Sin academia'
       });
     }
   };
+
   matches.forEach(m => {
-    add(m.participantAkka);
-    add(m.participantAo);
+    push(m.participantAkka);
+    push(m.participantAo);
   });
-  let i = 1;
-  return [...map.values()].map(p => ({ nr: i++, ...p }));
+
+  let nr = 1;
+  return [...map.values()].map(p => ({ nr: nr++, ...p }));
 }
 
-/** Carga logo de una URL (o dataURL) a dataURL para jsPDF */
 async function toDataURL(url: string): Promise<string> {
-  // Si ya es dataURL, retorna directo
-  if (url.startsWith('data:')) return url;
+  if (url.startsWith("data:")) return url;
   try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    return await new Promise<string>((resolve, reject) => {
+    const blob = await (await fetch(url)).blob();
+    return await new Promise(resolve => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-  } catch (error) {
-    console.error('Error cargando logo:', error);
-    return '';
+  } catch {
+    return "";
   }
 }
 
-/** Dibuja encabezado con logo + título */
+function formatAgeRange(label?: string): string {
+  if (!label) return '';
+  return label.replace(/\s*-\s*/g, ' - ');
+}
+
+function formatBelt(name?: string): string {
+  if (!name) return '';
+  const rankRegex = /(\d+(?:er|ro|to|mo)?\s*[Kk]yu)/;
+  const m = name.match(rankRegex);
+  if (m && m[1]) return m[1].toLowerCase();
+  if (/negro/i.test(name)) return 'negro';
+  const parts = name.trim().split(/\s+/);
+  return parts.slice(-2).join(' ').toLowerCase();
+}
+
+// -----------------------------------------------------------------------------
+// HEADER
+// -----------------------------------------------------------------------------
 async function drawHeader(doc: jsPDF, titleLeft: string, titleRight: string, logoUrl?: string) {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 14;
 
-  // Borde del documento
   doc.setDrawColor(0);
   doc.setLineWidth(1);
-  doc.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
+  doc.rect(margin, margin, pageWidth - margin * 2, doc.internal.pageSize.getHeight() - margin * 2);
 
-  // Logo a la izquierda
   if (logoUrl) {
-    try {
-      const dataURL = await toDataURL(logoUrl);
-      if (dataURL) {
-        doc.addImage(dataURL, 'PNG', margin + 5, margin + 5, 50, 40);
-      }
-    } catch (error) {
-      console.error('Error agregando logo:', error);
+    const dataURL = await toDataURL(logoUrl);
+    if (dataURL) {
+      doc.addImage(dataURL, 'PNG', margin + 5, margin + 5, 50, 40);
     }
   }
 
-  // Título centrado
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.text(titleLeft, pageWidth / 2, margin + 20, { align: 'center' });
-  
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.text(titleRight, pageWidth / 2, margin + 35, { align: 'center' });
 
-  // Línea separadora
-  doc.setLineWidth(0.5);
   doc.line(margin + 5, margin + 50, pageWidth - margin - 5, margin + 50);
 }
 
-/** Tabla de participantes con autoTable */
+// -----------------------------------------------------------------------------
+// TABLA DE PARTICIPANTES (más compacta)
+// -----------------------------------------------------------------------------
 function drawParticipantsTable(doc: jsPDF, participants: any[], startY = 70) {
-  const margin = 20;
-  
-  // 💥 CAMBIO: Eliminada la columna "Startnr" (p.nr + 100)
-  const body: RowInput[] = participants.map(p => [p.nr, p.nombre, p.club]);
   autoTable(doc, {
     startY,
     head: [['Nr.', 'Nombre', 'Club']],
-    body,
-    styles: { 
-      fontSize: 9, 
-      cellPadding: 3,
-      lineColor: [0, 0, 0],
-      lineWidth: 0.5
-    },
-    headStyles: { 
-      fillColor: [255, 255, 255],
-      textColor: [0, 0, 0],
-      fontStyle: 'bold',
-      halign: 'center'
-    },
-    columnStyles: { 
-      0: { halign: 'center', cellWidth: 20 },
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 'auto' }
-    },
-    margin: { left: margin, right: margin },
-    tableLineColor: [0, 0, 0],
-    tableLineWidth: 0.5,
+    body: participants.map((p: any) => [p.nr, p.nombre, p.club]),
+    styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 102, 153], lineWidth: 0.5 },
+    headStyles: { fontStyle: 'bold', fillColor: [0, 102, 153], textColor: [255, 255, 255] },
+    margin: { left: 20, right: 20 },
+    theme: 'grid'
   });
-  return (doc as any).lastAutoTable.finalY as number;
+  return (doc as any).lastAutoTable.finalY;
 }
 
-/** Dibuja un bloque de texto dentro de una caja (match) */
+// -----------------------------------------------------------------------------
+// CAJA DEL MATCH
+// -----------------------------------------------------------------------------
 function drawMatchBox(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  labelTop: string,
-  labelBottom: string,
-  academyTop: string,
-  academyBottom: string,
-  scoreTop?: string | number | null,
-  scoreBottom?: string | number | null,
-  winnerId?: number | null,
-  topId?: number,
-  bottomId?: number,
-  isBye: boolean = false
+  doc: jsPDF, 
+  x: number, 
+  y: number, 
+  w: number, 
+  h: number, 
+  t: any, 
+  b: any, 
+  aT: string, 
+  aB: string, 
+  scoreT: number, 
+  scoreB: number, 
+  winnerId: number, 
+  topId: number, 
+  botId: number, 
+  isBye: boolean,
+  fontSize: number = 8
 ) {
-  const halfH = h / 2;
-  
-  // 💥 SI ES BYE: Dibujar caja vacía con fondo gris claro (sin texto)
+  const half = h / 2;
+
   if (isBye) {
-    // Fondo gris para indicar BYE
     doc.setFillColor(230, 230, 230);
-    doc.rect(x, y, w, h, 'FD'); // F = fill, D = draw border
-    
-    // Borde completo
-    doc.setDrawColor(0);
-    doc.setLineWidth(1);
+    doc.rect(x, y, w, h, 'FD');
     doc.rect(x, y, w, h);
-    
-    // Línea divisoria en el medio
-    doc.line(x, y + halfH, x + w, y + halfH);
-    
-    // No mostrar texto - caja completamente vacía
-    
-    // Resetear y salir
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
+    doc.line(x, y + half, x + w, y + half);
     return;
   }
-  
-  // Parte superior (Akka/Rojo)
-  const isTopWinner = winnerId && topId && winnerId === topId;
-  const isTopEmpty = !labelTop || labelTop === 'Pendiente' || labelTop === '';
-  
-  // Fondo: solo si es ganador, sino blanco
-  if (isTopWinner) {
-    doc.setFillColor(255, 200, 200); // Fondo rojo si gana
-    doc.rect(x, y, w, halfH, 'F');
-  }
-  
-  // Borde superior
-  doc.setDrawColor(0);
-  doc.setLineWidth(1);
-  doc.rect(x, y, w, halfH);
-  
-  // Contenido superior
-  if (!isTopEmpty) {
-    // Color del texto: Negro si es ganador, Rojo si no
-    if (isTopWinner) {
-      doc.setTextColor(0, 0, 0); // Negro para ganador
-    } else {
-      doc.setTextColor(255, 0, 0); // Rojo para competidor normal
-    }
-    
-    const textX = x + 3;
-    
-    // Nombre
-    doc.setFontSize(8);
-    doc.setFont('helvetica', isTopWinner ? 'bold' : 'normal');
-    const displayName = labelTop.length > 25 ? labelTop.substring(0, 25) + '...' : labelTop;
-    doc.text(displayName, textX, y + halfH / 2 - 1);
-    
-    // Academia (debajo del nombre, más pequeña)
-    if (academyTop) {
-      doc.setFontSize(6);
-      doc.setFont('helvetica', 'normal');
-      const displayAcademy = academyTop.length > 25 ? academyTop.substring(0, 25) + '...' : academyTop;
-      doc.text(displayAcademy, textX, y + halfH / 2 + 5);
-    }
-    
-    // Puntaje (mismo color que el texto)
-    if (scoreTop != null) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(String(scoreTop), x + w - 4, y + halfH / 2 + 2, { align: 'right' });
-    }
-  }
-  // Si está vacío, no mostrar nada (ni "Pendiente")
 
-  // Parte inferior (Ao/Azul)
-  const isBottomWinner = winnerId && bottomId && winnerId === bottomId;
-  const isBottomEmpty = !labelBottom || labelBottom === 'Pendiente' || labelBottom === '';
-  
-  // Fondo: solo si es ganador, sino blanco
-  if (isBottomWinner) {
-    doc.setFillColor(200, 220, 255); // Fondo azul si gana
-    doc.rect(x, y + halfH, w, halfH, 'F');
-  }
-  
-  // Borde inferior
-  doc.setDrawColor(0);
-  doc.setLineWidth(1);
-  doc.rect(x, y + halfH, w, halfH);
-  
-  // Contenido inferior
-  if (!isBottomEmpty) {
-    // Color del texto: Negro si es ganador, Azul si no
-    if (isBottomWinner) {
-      doc.setTextColor(0, 0, 0); // Negro para ganador
-    } else {
-      doc.setTextColor(0, 0, 255); // Azul para competidor normal
+  const drawSide = (sy: number, name: string, acad: string, score: number, win: boolean, color: string) => {
+    if (win) {
+      doc.setFillColor(color === 'red' ? 255 : 200, color === 'red' ? 200 : 220, color === 'red' ? 200 : 255);
+      doc.rect(x, sy, w, half, 'F');
     }
+    doc.rect(x, sy, w, half);
+
+    if (!name) return;
+
+    doc.setFont('helvetica', win ? 'bold' : 'normal');
+    doc.setFontSize(fontSize);
+    const textColor = color === 'red' ? [255, 0, 0] : [0, 0, 255];
+    doc.setTextColor(...(textColor as [number, number, number]));
     
-    const textX = x + 3;
-    
-    // Nombre
-    doc.setFontSize(8);
-    doc.setFont('helvetica', isBottomWinner ? 'bold' : 'normal');
-    const displayNameBottom = labelBottom.length > 25 ? labelBottom.substring(0, 25) + '...' : labelBottom;
-    doc.text(displayNameBottom, textX, y + halfH + halfH / 2 - 1);
-    
-    // Academia (debajo del nombre, más pequeña)
-    if (academyBottom) {
-      doc.setFontSize(6);
-      doc.setFont('helvetica', 'normal');
-      const displayAcademyBottom = academyBottom.length > 25 ? academyBottom.substring(0, 25) + '...' : academyBottom;
-      doc.text(displayAcademyBottom, textX, y + halfH + halfH / 2 + 5);
+    const maxChars = Math.floor(w / (fontSize * 0.5));
+    doc.text(name.substring(0, maxChars), x + 3, sy + half / 2);
+
+    if (acad) {
+      doc.setFontSize(Math.max(5, fontSize - 2));
+      doc.text(acad.substring(0, maxChars), x + 3, sy + half / 2 + (fontSize * 0.7));
     }
-    
-    // Puntaje (mismo color que el texto)
-    if (scoreBottom != null) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(String(scoreBottom), x + w - 4, y + halfH + halfH / 2 + 2, { align: 'right' });
+
+    if (score !== null && score !== undefined) {
+      doc.setFontSize(fontSize + 1);
+      doc.text(String(score), x + w - 3, sy + half / 2, { align: 'right' });
     }
-  }
-  // Si está vacío, no mostrar nada (ni "Pendiente")
-  
-  // Resetear
+  };
+
+  drawSide(y, t, aT, scoreT, winnerId === topId, 'red');
+  drawSide(y + half, b, aB, scoreB, winnerId === botId, 'blue');
+
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
 }
 
-/** 
- * 💥 NO generar matches ficticios - usar SOLO los matches reales del backend
- * El backend ya maneja correctamente la estructura del bracket con matches vacíos
- */
-function generateCompleteBracket(realMatches: any[]): any[] {
-  // Simplemente retornar los matches reales sin agregar nada ficticio
-  return realMatches;
-}
-
-/** 
- * 💥 TRANSFORMAR MATCHES - Eliminar datos de competidores en matches BYE
- * Los matches BYE deben mostrarse vacíos en el PDF
- */
-function transformMatchesForPdf(matches: any[]): any[] {
-  return matches.map(match => {
-    // Detectar si es un match con BYE
-    const hasBye = (match.participantAkkaId && !match.participantAoId) || 
-                   (!match.participantAkkaId && match.participantAoId);
-    
-    // Si es un match BYE, retornar sin competidores (vacío)
-    if (hasBye && match.status === 'Completado') {
-      return {
-        ...match,
-        participantAkka: null,  // Eliminar competidor
-        participantAo: null,     // Eliminar competidor
-        scoreAkka: null,
-        scoreAo: null,
-        status: 'BYE'
-      };
-    }
-    
-    // Match normal - retornar sin cambios
-    return match;
+// -----------------------------------------------------------------------------
+// ARMAR ÁRBOL
+// -----------------------------------------------------------------------------
+function transformMatches(matches: any[]) {
+  return matches.map((m: any) => {
+    const bye = (m.participantAkkaId && !m.participantAoId) || (!m.participantAkkaId && m.participantAoId);
+    return bye && m.status === 'Completado'
+      ? { ...m, participantAkka: null, participantAo: null, scoreAkka: null, scoreAo: null, status: 'BYE' }
+      : m;
   });
 }
 
-/** Construir árbol a partir de los matches (incluyendo BYE) */
-function buildMatchTree(matches: any[]) {
-  // 💥 Transformar matches para eliminar datos en BYE
-  const transformedMatches = transformMatchesForPdf(matches);
-  
-  // Generar bracket completo con matches vacíos
-  const completeMatches = generateCompleteBracket(transformedMatches);
-  
-  const map = new Map<number, any>();
-  completeMatches.forEach((m) => {
-    map.set(m.id, { ...m, children: [] });
+function buildTree(matches: any[]) {
+  const m = transformMatches(matches);
+  const map = new Map();
+  m.forEach((x: any) => map.set(x.id, { ...x, children: [] }));
+
+  let root = null;
+  m.forEach((x: any) => {
+    if (x.nextMatchId) map.get(x.nextMatchId).children.push(map.get(x.id));
+    else root = map.get(x.id);
   });
 
-  let root: any = null;
-  completeMatches.forEach((m) => {
-    const node = map.get(m.id);
-    if (m.nextMatchId !== null) {
-      const parent = map.get(m.nextMatchId);
-      if (parent) {
-        parent.children.push(node);
-      }
-    } else {
-      root = node;
-    }
-  });
-
-  return { root, map };
+  return root;
 }
 
-/** Calcula dimensiones del árbol recursivamente */
-function calculateTreeDimensions(match: any, boxH: number, vGap: number): { width: number; height: number } {
-  if (!match || match.children.length === 0) {
-    return { width: 1, height: boxH };
-  }
-  
-  const childDimensions = match.children.map((child: any) => 
-    calculateTreeDimensions(child, boxH, vGap)
-  );
-  
-  const totalHeight = childDimensions.reduce((sum: number, dim: any) => sum + dim.height, 0) + 
-                      (match.children.length - 1) * vGap;
-  
+function calcDims(node: any, boxH: number, vGap: number): { width: number; height: number } {
+  if (!node.children.length) return { width: 1, height: boxH };
+
+  const dims = node.children.map((c: any) => calcDims(c, boxH, vGap));
   return {
-    width: Math.max(...childDimensions.map((d: any) => d.width)) + 1,
-    height: totalHeight
+    width: Math.max(...dims.map((d: any) => d.width)) + 1,
+    height: dims.reduce((s: number, d: any) => s + d.height, 0) + (dims.length - 1) * vGap
   };
 }
 
-/** Dibuja un match y sus hijos recursivamente */
-function drawMatchRecursive(
-  doc: jsPDF,
-  match: any,
-  x: number,
-  y: number,
-  boxW: number,
-  boxH: number,
-  hGap: number,
-  vGap: number
+function drawTree(
+  doc: jsPDF, 
+  node: any, 
+  x: number, 
+  y: number, 
+  boxW: number, 
+  boxH: number, 
+  hGap: number, 
+  vGap: number,
+  fontSize: number
 ): number {
-  if (!match) return y;
-  
-  // Dibujar hijos primero (van a la izquierda)
+  if (!node) return y;
+
   let currentY = y;
-  const childPositions: { y: number; centerY: number }[] = [];
-  
-  if (match.children && match.children.length > 0) {
-    match.children.forEach((child: any) => {
-      const childDim = calculateTreeDimensions(child, boxH, vGap);
-      const childStartY = currentY;
-      
-      drawMatchRecursive(doc, child, x - boxW - hGap, childStartY, boxW, boxH, hGap, vGap);
-      
-      const childCenterY = childStartY + childDim.height / 2;
-      childPositions.push({ y: childStartY, centerY: childCenterY });
-      
-      currentY += childDim.height + vGap;
-    });
-    
-    // Recalcular Y del match padre para centrarlo con sus hijos
-    if (childPositions.length > 0) {
-      const firstChild = childPositions[0];
-      const lastChild = childPositions[childPositions.length - 1];
-      if (firstChild && lastChild) {
-        const firstChildCenter = firstChild.centerY;
-        const lastChildCenter = lastChild.centerY;
-        y = (firstChildCenter + lastChildCenter) / 2 - boxH / 2;
-      }
-    }
+  const pos: any[] = [];
+
+  for (const child of node.children) {
+    const d = calcDims(child, boxH, vGap);
+    drawTree(doc, child, x - boxW - hGap, currentY, boxW, boxH, hGap, vGap, fontSize);
+    pos.push({ y: currentY, center: currentY + d.height / 2 });
+    currentY += d.height + vGap;
   }
-  
-  // Dibujar el match actual
-  const top = match.participantAkka
-    ? `${match.participantAkka.student?.firstname ?? ''} ${match.participantAkka.student?.lastname ?? ''}`.trim()
-    : '';
-  const bot = match.participantAo
-    ? `${match.participantAo.student?.firstname ?? ''} ${match.participantAo.student?.lastname ?? ''}`.trim()
-    : '';
-  
-  const academyTop = match.participantAkka?.student?.academy?.name ?? '';
-  const academyBottom = match.participantAo?.student?.academy?.name ?? '';
-  
-  // 💥 Detectar si es BYE
-  const isBye = match.status === 'BYE';
-  
+
+  if (pos.length) {
+    y = (pos[0].center + pos[pos.length - 1].center) / 2 - boxH / 2;
+  }
+
   drawMatchBox(
-    doc, x, y, boxW, boxH,
-    top, bot,
-    academyTop, academyBottom,
-    match.scoreAkka, match.scoreAo,
-    match.winnerId,
-    match.participantAkka?.id,
-    match.participantAo?.id,
-    isBye
+    doc,
+    x,
+    y,
+    boxW,
+    boxH,
+    node.participantAkka ? `${node.participantAkka.student.firstname} ${node.participantAkka.student.lastname}` : "",
+    node.participantAo ? `${node.participantAo.student.firstname} ${node.participantAo.student.lastname}` : "",
+    node.participantAkka?.student?.academy?.name ?? "",
+    node.participantAo?.student?.academy?.name ?? "",
+    node.scoreAkka,
+    node.scoreAo,
+    node.winnerId,
+    node.participantAkka?.id,
+    node.participantAo?.id,
+    node.status === "BYE",
+    fontSize
   );
-  
-  // Dibujar conectores desde los hijos hacia el padre (estilo clásico de bracket)
-  if (childPositions.length > 0) {
-    const parentLeftEdge = x;
-    const parentMidY = y + boxH / 2;
-    
-    doc.setDrawColor(0);
-    doc.setLineWidth(1);
-    
-    if (childPositions.length === 2) {
-      // Caso típico: 2 hijos (bracket clásico)
-      const firstChild = childPositions[0];
-      const lastChild = childPositions[1];
-      
-      if (firstChild && lastChild) {
-        const child1Y = firstChild.centerY;
-        const child2Y = lastChild.centerY;
-        const childRightEdge = x - hGap;
-        const connectorX = childRightEdge + hGap / 2;
-        
-        // Líneas horizontales desde cada hijo hacia el conector
-        doc.line(childRightEdge, child1Y, connectorX, child1Y);
-        doc.line(childRightEdge, child2Y, connectorX, child2Y);
-        
-        // Línea vertical conectando ambos hijos
-        doc.line(connectorX, child1Y, connectorX, child2Y);
-        
-        // Línea horizontal desde el conector hacia el padre
-        doc.line(connectorX, parentMidY, parentLeftEdge, parentMidY);
-      }
-    } else if (childPositions.length === 1) {
-      // Un solo hijo
-      const child = childPositions[0];
-      if (child) {
-        const childRightEdge = x - hGap;
-        doc.line(childRightEdge, child.centerY, parentLeftEdge, parentMidY);
-      }
-    }
+
+  // Líneas conectoras
+  if (node.children.length === 2) {
+    const [c1, c2] = pos;
+    const parentY = y + boxH / 2;
+    const connectorX = x - hGap / 2;
+
+    doc.line(x - hGap, c1.center, connectorX, c1.center);
+    doc.line(x - hGap, c2.center, connectorX, c2.center);
+    doc.line(connectorX, c1.center, connectorX, c2.center);
+    doc.line(connectorX, parentY, x, parentY);
   }
-  
-  return Math.max(currentY, y + boxH);
+
+  return currentY;
 }
 
-/** Calcula la profundidad máxima del árbol */
-/* No se usa actualmente, pero se mantiene por si se necesita
-function getTreeDepth(match: any): number {
-  if (!match || !match.children || match.children.length === 0) {
-    return 0;
-  }
-  return 1 + Math.max(...match.children.map((child: any) => getTreeDepth(child)));
-}
-*/
+// -----------------------------------------------------------------------------
+// DIBUJAR BRACKET (ajustado dinámicamente, CENTRADO VERTICAL)
+// -----------------------------------------------------------------------------
+function drawBracket(doc: jsPDF, matches: any[], startY: number): number {
+  const node = buildTree(matches);
+  if (!node) return startY;
 
-/** Dibuja las llaves de forma recursiva (estilo árbol) */
-function drawBracket(doc: jsPDF, matches: any[], startY: number) {
-  const margin = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+
+  // Espacio disponible
+  const availableHeight = pageHeight - startY - margin - 10;
+  const availableWidth = pageWidth - (margin * 2) - 20;
+
+  // Dimensiones base (valores óptimos para legibilidad)
+  let boxW = 110;
+  let boxH = 32;
+  let hGap = 35;
+  let vGap = 12;
+
+  // Calcular dimensiones necesarias con valores base
+  const baseDims = calcDims(node, boxH, vGap);
+  const baseTotalWidth = baseDims.width * boxW + (baseDims.width - 1) * hGap;
+  const baseTotalHeight = Math.max(baseDims.height, boxH);
+
+  // Factor de escala (AHORA SÍ PUEDE AGRANDAR hasta llenar espacio)
+  const scaleWidth = availableWidth / baseTotalWidth;
+  const scaleHeight = availableHeight / baseTotalHeight;
   
-  // DIMENSIONES FIJAS - No escalar horizontalmente
-  const boxW = 85;      // Ancho fijo de caja
-  const boxH = 28;      // Alto fijo de caja
-  const hGap = 35;      // Espacio horizontal fijo entre niveles
-  const vGap = 12;      // Espacio vertical entre matches
-  
-  // Construir árbol de matches
-  const { root } = buildMatchTree(matches);
-  
-  if (!root) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('No hay bracket disponible', pageWidth / 2, startY + 50, { align: 'center' });
-    return startY + 100;
-  }
-  
-  // Calcular dimensiones totales del árbol
-  const treeDim = calculateTreeDimensions(root, boxH, vGap);
-  
-  // 💥 CAMBIO: Calcular el ancho total necesario para el bracket
-  const totalBracketWidth = (treeDim.width * boxW) + ((treeDim.width - 1) * hGap);
-  
-  // 💥 CAMBIO: Posición inicial X desde la IZQUIERDA en lugar de derecha
-  const startX = margin + totalBracketWidth - boxW;
-  
-  // Verificar si el bracket cabe verticalmente en esta página
-  const availableHeight = pageHeight - startY - margin;
-  const needsNewPage = treeDim.height > availableHeight;
-  
-  let finalStartY = startY;
-  
-  if (needsNewPage) {
-    // Si no cabe, crear nueva página y empezar desde arriba
-    doc.addPage();
-    finalStartY = margin + 10;
-    
-    // Re-dibujar el header en la nueva página para continuidad
-    const cat = matches[0]?.championshipCategory ?? {};
-    const catTitle = `${cat?.code ?? ''} - ${cat?.gender ?? ''} ${cat?.ageRange?.label ?? cat?.weight ?? ''}`.trim();
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text(`${catTitle} (continuación)`, pageWidth / 2, finalStartY, { align: 'center' });
-    finalStartY += 20;
-  }
-  
-  // Verificar si necesita dividirse en múltiples páginas verticalmente
-  const maxHeightPerPage = pageHeight - finalStartY - margin;
-  
-  if (treeDim.height > maxHeightPerPage) {
-    // El bracket es demasiado alto incluso para una página nueva
-    const startTreeY = finalStartY + 10;
-    drawMatchRecursive(doc, root, startX, startTreeY, boxW, boxH, hGap, vGap);
-    return pageHeight - margin; // Indicar que se usó toda la página
-  } else {
-    // Centrar verticalmente en el espacio disponible
-    const startTreeY = finalStartY + Math.max(10, (maxHeightPerPage - treeDim.height) / 2);
-    drawMatchRecursive(doc, root, startX, startTreeY, boxW, boxH, hGap, vGap);
-    return startTreeY + treeDim.height + 20;
-  }
+  // Permitimos agrandar hasta 1.8x para brackets pequeños, pero limitamos el máximo
+  const scale = Math.min(scaleWidth, scaleHeight, 1.8);
+
+  // Aplicar escala con límites razonables
+  boxW = Math.max(70, Math.min(150, Math.round(boxW * scale)));
+  boxH = Math.max(28, Math.min(50, Math.round(boxH * scale)));
+  hGap = Math.max(10, Math.min(60, Math.round(hGap * scale)));
+  vGap = Math.max(8, Math.min(25, Math.round(vGap * scale)));
+
+  // Recalcular con valores escalados
+  const scaledDims = calcDims(node, boxH, vGap);
+  const scaledWidth = scaledDims.width * boxW + (scaledDims.width - 1) * hGap;
+  const scaledHeight = scaledDims.height;
+
+  // ✅ CENTRADO HORIZONTAL
+  const startX = Math.max(margin + 10, (pageWidth - scaledWidth) / 2);
+
+  // ✅ CENTRADO VERTICAL (si hay espacio sobrante)
+  const verticalMargin = Math.max(0, (availableHeight - scaledHeight) / 2);
+  const finalStartY = startY + verticalMargin;
+
+  // Ajustar tamaño de fuente según escala (más grande para brackets pequeños)
+  const fontSize = Math.max(7, Math.min(10, Math.round(8 * scale)));
+
+  drawTree(doc, node, startX + scaledWidth - boxW, finalStartY, boxW, boxH, hGap, vGap, fontSize);
+
+  return finalStartY + scaledHeight + 20;
 }
 
-/** Orquestador: por cada categoría, tabla + llaves (nueva página si hace falta) */
-async function buildPdf(doc: jsPDF, allMatches: any[], championshipName: string, logoUrl?: string) {
-  const byCat = groupByCategory(allMatches);
+// -----------------------------------------------------------------------------
+// BUILD PDF FINAL - TODO EN UNA PÁGINA
+// -----------------------------------------------------------------------------
+async function buildPdf(doc: jsPDF, matchesTotal: any[], championshipName: string, logoUrl?: string) {
+  const grouped = groupByCategory(matchesTotal);
 
   let first = true;
-  for (const [, matches] of byCat) {
+
+  for (const [, matches] of grouped) {
     if (!first) doc.addPage();
     first = false;
 
-    const cat = matches[0]?.championshipCategory ?? {};
-    const catTitle = `${cat?.code ?? ''} - ${cat?.gender ?? ''} ${cat?.ageRange?.label ?? cat?.weight ?? ''}`.trim();
+    // Información de categoría
+    const rawCatFromMatch = matches[0]?.championshipCategory;
+    const catId = matches[0]?.championshipCategoryId ?? rawCatFromMatch?.id;
+    const storeCat = championshipStore.championshipCategories?.find((cc: any) => cc.id === catId);
+    const c = storeCat ?? rawCatFromMatch ?? {};
 
-    await drawHeader(
-      doc, 
-      championshipName || 'CAMPEONATO', 
-      catTitle,
-      logoUrl
-    );
+    const ageLabel = formatAgeRange(c.ageRange?.label ?? c.weight ?? '');
+    const minBelt = formatBelt(c.beltMinName ?? c.beltMin?.name ?? '');
+    const maxBelt = formatBelt(c.beltMaxName ?? c.beltMax?.name ?? '');
+    const title = `${c.code ?? ''}: ${c.gender ?? ''} ${ageLabel} de ${minBelt} hasta ${maxBelt}`;
+
+    await drawHeader(doc, championshipName, title, logoUrl);
 
     const participants = extractParticipants(matches);
-    const endTableY = drawParticipantsTable(doc, participants, 70);
+    const afterTableY = drawParticipantsTable(doc, participants, 70);
 
-    // Espacio para las llaves
-    const startBracketY = endTableY + 20;
-
-    drawBracket(doc, matches, startBracketY);
+    // ✅ TODO EN LA MISMA PÁGINA - SIN doc.addPage()
+    drawBracket(doc, matches, afterTableY + 10);
   }
 }
 
-/** API pública para tu app */
+// -----------------------------------------------------------------------------
+// GENERAR PDF
+// -----------------------------------------------------------------------------
 async function exportPdf() {
   isGenerating.value = true;
 
   try {
-    console.log('🎯 Iniciando exportación de PDF para campeonato:', props.championshipId);
-    
-    // 1. Cargar todas las categorías del campeonato
-    await championshipStore.fetchChampionshipCategories(props.championshipId);
-    
-    const categories = championshipStore.championshipCategories;
-    console.log('📋 Categorías encontradas:', categories.length);
-    
-    if (categories.length === 0) {
-      alert('No hay categorías disponibles para exportar');
-      return;
-    }
-    
-    // 2. Cargar matches de todas las categorías
+    await championshipStore.fetchChampionshipCategories(props.championshipId, 1, 999);
+
     const allMatches: any[] = [];
-    
-    for (const category of categories) {
-      console.log(`📥 Cargando matches para categoría ${category.id}:`, category.modality, category.gender);
-      await championshipStore.fetchMatches(category.id);
-      
-      // Agregar matches de esta categoría al array total
-      const categoryMatches = championshipStore.matches.filter(
-        m => m.championshipCategoryId === category.id
-      );
-      
-      console.log(`✅ Matches cargados para categoría ${category.id}:`, categoryMatches.length);
-      allMatches.push(...categoryMatches);
+
+    for (const c of championshipStore.championshipCategories) {
+      const ms = await matchService.getBracketsByCategory(c.id);
+      allMatches.push(...ms.map(m => ({ ...m, championshipCategory: m.championshipCategory || c })));
     }
-    
-    console.log('📊 Total de matches a exportar:', allMatches.length);
-    
-    if (allMatches.length === 0) {
-      alert('No hay matches disponibles para exportar');
-      return;
-    }
-    
-    // 3. Generar el PDF
-    console.log('📄 Generando PDF...');
+
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    await buildPdf(
-      doc, 
-      allMatches,
-      props.championshipName || 'Campeonato de Karate',
-      props.logoUrl
-    );
-    
-    const filename = `brackets_${props.championshipName?.replace(/\s+/g, '_') || 'campeonato'}_${new Date().getTime()}.pdf`;
+
+    await buildPdf(doc, allMatches, props.championshipName ?? "Campeonato de Karate", props.logoUrl);
+
+    const filename = `brackets_${Date.now()}.pdf`;
     doc.save(filename);
-    
-    console.log('✅ PDF generado exitosamente:', filename);
-  } catch (error) {
-    console.error('❌ Error generando PDF:', error);
-    alert('Error al generar el PDF. Por favor intenta nuevamente.\n\n' + (error as Error).message);
-  } finally {
-    isGenerating.value = false;
+
+  } catch (e) {
+    console.error(e);
+    alert("Error generando PDF");
   }
+
+  isGenerating.value = false;
 }
 </script>

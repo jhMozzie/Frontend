@@ -45,7 +45,7 @@ onMounted(() => {
 });
 
 // -----------------------------------------------------------------------------
-// HELPERS BÁSICOS
+// HELPERS
 // -----------------------------------------------------------------------------
 function groupByCategory(matches: any[]) {
   const map = new Map<number, any[]>();
@@ -68,12 +68,10 @@ function extractParticipants(matches: any[]) {
       });
     }
   };
-
   matches.forEach(m => {
     push(m.participantAkka);
     push(m.participantAo);
   });
-
   let nr = 1;
   return [...map.values()].map(p => ({ nr: nr++, ...p }));
 }
@@ -127,265 +125,384 @@ async function drawHeader(doc: jsPDF, titleLeft: string, titleRight: string, log
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text(titleLeft, pageWidth / 2, margin + 20, { align: 'center' });
+  doc.text(titleLeft, pageWidth / 2, margin + 25, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text(titleRight, pageWidth / 2, margin + 35, { align: 'center' });
+  doc.setFontSize(10);
+  doc.text(titleRight, pageWidth / 2, margin + 40, { align: 'center' });
 
+  // Línea divisoria header
   doc.line(margin + 5, margin + 50, pageWidth - margin - 5, margin + 50);
 }
 
 // -----------------------------------------------------------------------------
-// TABLA DE PARTICIPANTES (más compacta)
+// TABLA DE PARTICIPANTES (MULTICOLUMNA)
 // -----------------------------------------------------------------------------
-function drawParticipantsTable(doc: jsPDF, participants: any[], startY = 70) {
-  autoTable(doc, {
-    startY,
-    head: [['Nr.', 'Nombre', 'Club']],
-    body: participants.map((p: any) => [p.nr, p.nombre, p.club]),
-    styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 102, 153], lineWidth: 0.5 },
-    headStyles: { fontStyle: 'bold', fillColor: [0, 102, 153], textColor: [255, 255, 255] },
-    margin: { left: 20, right: 20 },
-    theme: 'grid'
-  });
-  return (doc as any).lastAutoTable.finalY;
+function drawParticipantsTable(doc: jsPDF, participants: any[], startY: number) {
+  // Configuración
+  const maxRowsPerCol = 5; // Tu requerimiento: máx 5 por columna
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const colGap = 10;
+  
+  // Calcular cuántas columnas necesitamos
+  const totalCols = Math.ceil(participants.length / maxRowsPerCol);
+  // Ancho de cada tabla
+  const tableWidth = (pageWidth - (margin * 2) - ((totalCols - 1) * colGap)) / totalCols;
+
+  let currentY = startY;
+  let maxFinalY = startY;
+
+  // Dibujar columnas
+  for (let i = 0; i < totalCols; i++) {
+    const startIdx = i * maxRowsPerCol;
+    const endIdx = startIdx + maxRowsPerCol;
+    const chunk = participants.slice(startIdx, endIdx);
+
+    const currentX = margin + (i * (tableWidth + colGap));
+
+    autoTable(doc, {
+      startY: startY,
+      head: [['Nr.', 'Nombre', 'Club']],
+      body: chunk.map((p: any) => [p.nr, p.nombre, p.club]),
+      styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 102, 153], lineWidth: 0.1 },
+      headStyles: { fontStyle: 'bold', fillColor: [0, 102, 153], textColor: [255, 255, 255], minCellHeight: 10 },
+      bodyStyles: { minCellHeight: 8 },
+      margin: { left: currentX },
+      tableWidth: tableWidth,
+      theme: 'grid'
+    });
+
+    // Guardar la Y más baja alcanzada para saber dónde empezar el bracket
+    if ((doc as any).lastAutoTable.finalY > maxFinalY) {
+      maxFinalY = (doc as any).lastAutoTable.finalY;
+    }
+  }
+
+  return maxFinalY;
 }
 
 // -----------------------------------------------------------------------------
-// CAJA DEL MATCH
+// DIBUJAR CAJA (ESTILO LIMPIO)
 // -----------------------------------------------------------------------------
-function drawMatchBox(
-  doc: jsPDF, 
-  x: number, 
-  y: number, 
-  w: number, 
-  h: number, 
-  t: any, 
-  b: any, 
-  aT: string, 
-  aB: string, 
-  scoreT: number, 
-  scoreB: number, 
-  winnerId: number, 
-  topId: number, 
-  botId: number, 
-  isBye: boolean,
-  fontSize: number = 8
+function drawSingleBox(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  name: string,
+  club: string,
+  score: number,
+  isRed: boolean,
+  isWinner: boolean,
+  fontSize: number
 ) {
-  const half = h / 2;
+  const colorObj = isRed 
+    ? { r: 220, g: 53, b: 69 }
+    : { r: 13, g: 110, b: 253 };
+  
+  doc.setLineWidth(1);
+  doc.setDrawColor(colorObj.r, colorObj.g, colorObj.b);
+  
+  const fillColor = isWinner ? [245, 245, 245] : [255, 255, 255];
+  doc.setFillColor(fillColor[0]!, fillColor[1]!, fillColor[2]!);
 
-  if (isBye) {
-    doc.setFillColor(230, 230, 230);
+  if (typeof (doc as any).roundedRect === 'function') {
+    (doc as any).roundedRect(x, y, w, h, 2, 2, 'FD');
+  } else {
     doc.rect(x, y, w, h, 'FD');
-    doc.rect(x, y, w, h);
-    doc.line(x, y + half, x + w, y + half);
-    return;
   }
 
-  const drawSide = (sy: number, name: string, acad: string, score: number, win: boolean, color: string) => {
-    if (win) {
-      doc.setFillColor(color === 'red' ? 255 : 200, color === 'red' ? 200 : 220, color === 'red' ? 200 : 255);
-      doc.rect(x, sy, w, half, 'F');
-    }
-    doc.rect(x, sy, w, half);
-
-    if (!name) return;
-
-    doc.setFont('helvetica', win ? 'bold' : 'normal');
+  if (name) {
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(fontSize);
-    const textColor = color === 'red' ? [255, 0, 0] : [0, 0, 255];
-    doc.setTextColor(...(textColor as [number, number, number]));
+    doc.setTextColor(colorObj.r, colorObj.g, colorObj.b);
     
-    const maxChars = Math.floor(w / (fontSize * 0.5));
-    doc.text(name.substring(0, maxChars), x + 3, sy + half / 2);
+    // Truncar texto inteligente
+    const scoreSpace = (score !== null && score !== undefined) ? 15 : 0;
+    const maxTextWidth = w - 8 - scoreSpace;
+    let textToDraw = name;
+    
+    if (doc.getTextWidth(textToDraw) > maxTextWidth) {
+       while (doc.getTextWidth(textToDraw + "...") > maxTextWidth && textToDraw.length > 0) {
+          textToDraw = textToDraw.slice(0, -1);
+       }
+       textToDraw += "...";
+    }
 
-    if (acad) {
+    doc.text(textToDraw, x + 4, y + (h * 0.45));
+
+    if (club) {
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(Math.max(5, fontSize - 2));
-      doc.text(acad.substring(0, maxChars), x + 3, sy + half / 2 + (fontSize * 0.7));
+      doc.setTextColor(80, 80, 80);
+      
+      let clubToDraw = club;
+      if (doc.getTextWidth(clubToDraw) > maxTextWidth) {
+         while (doc.getTextWidth(clubToDraw + "...") > maxTextWidth && clubToDraw.length > 0) {
+            clubToDraw = clubToDraw.slice(0, -1);
+        }
+        clubToDraw += "...";
+      }
+      doc.text(clubToDraw, x + 4, y + (h * 0.85));
     }
 
     if (score !== null && score !== undefined) {
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(fontSize + 1);
-      doc.text(String(score), x + w - 3, sy + half / 2, { align: 'right' });
+      doc.setTextColor(colorObj.r, colorObj.g, colorObj.b);
+      doc.text(String(score), x + w - 4, y + (h / 2) + 2, { align: 'right' });
     }
-  };
-
-  drawSide(y, t, aT, scoreT, winnerId === topId, 'red');
-  drawSide(y + half, b, aB, scoreB, winnerId === botId, 'blue');
+  }
 
   doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(0);
 }
 
 // -----------------------------------------------------------------------------
-// ARMAR ÁRBOL
+// LÓGICA BRACKET
 // -----------------------------------------------------------------------------
-function transformMatches(matches: any[]) {
-  return matches.map((m: any) => {
-    const bye = (m.participantAkkaId && !m.participantAoId) || (!m.participantAkkaId && m.participantAoId);
-    return bye && m.status === 'Completado'
-      ? { ...m, participantAkka: null, participantAo: null, scoreAkka: null, scoreAo: null, status: 'BYE' }
-      : m;
-  });
+interface BracketNode {
+  match: any;
+  children: BracketNode[];
+  round: number;
+  position: number;
 }
 
-function buildTree(matches: any[]) {
-  const m = transformMatches(matches);
-  const map = new Map();
-  m.forEach((x: any) => map.set(x.id, { ...x, children: [] }));
+function buildBracketTree(matches: any[]): BracketNode | null {
+  const matchMap = new Map<number, BracketNode>();
+  matches.forEach(m => matchMap.set(m.id, { match: m, children: [], round: 0, position: 0 }));
 
-  let root = null;
-  m.forEach((x: any) => {
-    if (x.nextMatchId) map.get(x.nextMatchId).children.push(map.get(x.id));
-    else root = map.get(x.id);
+  let root: BracketNode | null = null;
+  matches.forEach(m => {
+    const node = matchMap.get(m.id)!;
+    if (m.nextMatchId) {
+      const parent = matchMap.get(m.nextMatchId);
+      if (parent) parent.children.push(node);
+    } else {
+      root = node;
+    }
   });
 
+  function assignRounds(node: BracketNode): number {
+    if (node.children.length === 0) {
+      node.round = 0;
+      return 0;
+    }
+    const maxChildRound = Math.max(...node.children.map(c => assignRounds(c)));
+    node.round = maxChildRound + 1;
+    return node.round;
+  }
+  if (root) assignRounds(root);
   return root;
 }
 
-function calcDims(node: any, boxH: number, vGap: number): { width: number; height: number } {
-  if (!node.children.length) return { width: 1, height: boxH };
+function getNodesByRound(root: BracketNode): Map<number, BracketNode[]> {
+  const rounds = new Map<number, BracketNode[]>();
+  function traverse(node: BracketNode) {
+    if (!rounds.has(node.round)) rounds.set(node.round, []);
+    rounds.get(node.round)!.push(node);
+    node.children.forEach(c => traverse(c));
+  }
+  traverse(root);
+  
+  const firstRoundNodes = rounds.get(0) || [];
+  firstRoundNodes.forEach((node, idx) => { node.position = idx; });
 
-  const dims = node.children.map((c: any) => calcDims(c, boxH, vGap));
-  return {
-    width: Math.max(...dims.map((d: any) => d.width)) + 1,
-    height: dims.reduce((s: number, d: any) => s + d.height, 0) + (dims.length - 1) * vGap
-  };
+  for (let round = 1; round <= root.round; round++) {
+    const nodesInRound = rounds.get(round) || [];
+    nodesInRound.forEach(node => {
+      if (node.children.length > 0) {
+        const childPositions = node.children.map(c => c.position);
+        node.position = childPositions.reduce((a, b) => a + b, 0) / childPositions.length;
+      }
+    });
+  }
+  rounds.forEach(nodes => nodes.sort((a, b) => a.position - b.position));
+  return rounds;
 }
 
-function drawTree(
-  doc: jsPDF, 
-  node: any, 
-  x: number, 
-  y: number, 
-  boxW: number, 
-  boxH: number, 
-  hGap: number, 
-  vGap: number,
-  fontSize: number
-): number {
-  if (!node) return y;
-
-  let currentY = y;
-  const pos: any[] = [];
-
-  for (const child of node.children) {
-    const d = calcDims(child, boxH, vGap);
-    drawTree(doc, child, x - boxW - hGap, currentY, boxW, boxH, hGap, vGap, fontSize);
-    pos.push({ y: currentY, center: currentY + d.height / 2 });
-    currentY += d.height + vGap;
-  }
-
-  if (pos.length) {
-    y = (pos[0].center + pos[pos.length - 1].center) / 2 - boxH / 2;
-  }
-
-  drawMatchBox(
-    doc,
-    x,
-    y,
-    boxW,
-    boxH,
-    node.participantAkka ? `${node.participantAkka.student.firstname} ${node.participantAkka.student.lastname}` : "",
-    node.participantAo ? `${node.participantAo.student.firstname} ${node.participantAo.student.lastname}` : "",
-    node.participantAkka?.student?.academy?.name ?? "",
-    node.participantAo?.student?.academy?.name ?? "",
-    node.scoreAkka,
-    node.scoreAo,
-    node.winnerId,
-    node.participantAkka?.id,
-    node.participantAo?.id,
-    node.status === "BYE",
-    fontSize
-  );
-
-  // Líneas conectoras
-  if (node.children.length === 2) {
-    const [c1, c2] = pos;
-    const parentY = y + boxH / 2;
-    const connectorX = x - hGap / 2;
-
-    doc.line(x - hGap, c1.center, connectorX, c1.center);
-    doc.line(x - hGap, c2.center, connectorX, c2.center);
-    doc.line(connectorX, c1.center, connectorX, c2.center);
-    doc.line(connectorX, parentY, x, parentY);
-  }
-
-  return currentY;
-}
-
-// -----------------------------------------------------------------------------
-// DIBUJAR BRACKET (ajustado dinámicamente, CENTRADO VERTICAL)
-// -----------------------------------------------------------------------------
-function drawBracket(doc: jsPDF, matches: any[], startY: number): number {
-  const node = buildTree(matches);
-  if (!node) return startY;
+function drawBracket(doc: jsPDF, matches: any[], startY: number) {
+  const root = buildBracketTree(matches);
+  if (!root) return;
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 14;
+  const margin = 20;
 
-  // Espacio disponible
-  const availableHeight = pageHeight - startY - margin - 10;
-  const availableWidth = pageWidth - (margin * 2) - 20;
+  // Espacio disponible verticalmente
+  const availableHeight = pageHeight - startY - margin; 
+  // Espacio disponible horizontalmente
+  const availableWidth = pageWidth - (margin * 2);
 
-  // Dimensiones base (valores óptimos para legibilidad)
-  let boxW = 110;
-  let boxH = 32;
-  let hGap = 35;
-  let vGap = 12;
+  const roundsMap = getNodesByRound(root);
+  const numRounds = root.round + 1;
+  const maxMatchesInRound = Math.max(...Array.from(roundsMap.values()).map(r => r.length));
 
-  // Calcular dimensiones necesarias con valores base
-  const baseDims = calcDims(node, boxH, vGap);
-  const baseTotalWidth = baseDims.width * boxW + (baseDims.width - 1) * hGap;
-  const baseTotalHeight = Math.max(baseDims.height, boxH);
+  // --- DIMENSIONES BASE (VERTICAL A4) ---
+  const baseBoxW = 110; // Cajas más angostas para caber en vertical
+  const baseBoxH = 25;  // Altura estándar
+  const baseBoxGap = 4; // Gap pequeño entre rojo/azul
+  const baseHGap = 20;  // Conectores cortos
+  const baseVGap = 10;  // Gap vertical entre peleas
 
-  // Factor de escala (AHORA SÍ PUEDE AGRANDAR hasta llenar espacio)
-  const scaleWidth = availableWidth / baseTotalWidth;
-  const scaleHeight = availableHeight / baseTotalHeight;
+  const totalMatchHeight = baseBoxH * 2 + baseBoxGap;
+  const idealTotalHeight = maxMatchesInRound * totalMatchHeight + (maxMatchesInRound - 1) * baseVGap;
+  const idealTotalWidth = numRounds * baseBoxW + (numRounds - 1) * baseHGap;
+
+  // --- AUTO-SCALING VERTICAL ---
+  // Si el bracket es muy alto, reducimos la escala para que entre en la página
+  let scaleH = 1;
+  if (idealTotalHeight > availableHeight) {
+    scaleH = availableHeight / idealTotalHeight;
+  }
   
-  // Permitimos agrandar hasta 1.8x para brackets pequeños, pero limitamos el máximo
-  const scale = Math.min(scaleWidth, scaleHeight, 1.8);
+  // Auto-scaling horizontal (por si son muchas rondas)
+  let scaleW = 1;
+  if (idealTotalWidth > availableWidth) {
+    scaleW = availableWidth / idealTotalWidth;
+  }
 
-  // Aplicar escala con límites razonables
-  boxW = Math.max(70, Math.min(150, Math.round(boxW * scale)));
-  boxH = Math.max(28, Math.min(50, Math.round(boxH * scale)));
-  hGap = Math.max(10, Math.min(60, Math.round(hGap * scale)));
-  vGap = Math.max(8, Math.min(25, Math.round(vGap * scale)));
+  // Usamos la escala más restrictiva, pero limitando para no hacer texto ilegible
+  let scale = Math.min(scaleH, scaleW);
+  scale = Math.max(0.65, Math.min(scale, 1)); // Mínimo 65% del tamaño original
 
-  // Recalcular con valores escalados
-  const scaledDims = calcDims(node, boxH, vGap);
-  const scaledWidth = scaledDims.width * boxW + (scaledDims.width - 1) * hGap;
-  const scaledHeight = scaledDims.height;
+  const boxW = baseBoxW * scale;
+  const boxH = baseBoxH * scale;
+  const boxGap = baseBoxGap * scale;
+  const hGap = baseHGap * scale;
+  const vGap = baseVGap * scale;
+  const fontSize = Math.max(7, 9 * scale); // Fuente dinámica
 
-  // ✅ CENTRADO HORIZONTAL
-  const startX = Math.max(margin + 10, (pageWidth - scaledWidth) / 2);
+  const exits = new Map<number, { x: number, y: number }>(); 
+  const entries = new Map<number, { red: {x: number, y: number}, blue: {x: number, y: number} }>();
 
-  // ✅ CENTRADO VERTICAL (si hay espacio sobrante)
-  const verticalMargin = Math.max(0, (availableHeight - scaledHeight) / 2);
-  const finalStartY = startY + verticalMargin;
+  // Centrado Horizontal
+  const actualContentWidth = numRounds * boxW + (numRounds - 1) * hGap;
+  const startX = margin + (availableWidth - actualContentWidth) / 2;
+  
+  // Centrado Vertical (o inicio desde arriba si está apretado)
+  const actualContentHeight = maxMatchesInRound * (boxH * 2 + boxGap) + (maxMatchesInRound - 1) * vGap;
+  const verticalOffset = (availableHeight > actualContentHeight) 
+    ? (availableHeight - actualContentHeight) / 2 
+    : 0;
+    
+  const bracketStartY = startY + verticalOffset;
 
-  // Ajustar tamaño de fuente según escala (más grande para brackets pequeños)
-  const fontSize = Math.max(7, Math.min(10, Math.round(8 * scale)));
+  // --- DIBUJAR ---
+  for (let round = 0; round < numRounds; round++) {
+    const nodesInRound = roundsMap.get(round) || [];
+    nodesInRound.sort((a, b) => a.position - b.position);
 
-  drawTree(doc, node, startX + scaledWidth - boxW, finalStartY, boxW, boxH, hGap, vGap, fontSize);
+    const roundX = startX + round * (boxW + hGap);
 
-  return finalStartY + scaledHeight + 20;
+    nodesInRound.forEach((node) => {
+      let matchCenterY = 0;
+
+      if (node.children && node.children.length > 0) {
+        const childYPositions = node.children
+          .map(c => exits.get(c.match.id)?.y)
+          .filter(y => y !== undefined) as number[];
+        
+        if (childYPositions.length > 0) {
+          const minY = Math.min(...childYPositions);
+          const maxY = Math.max(...childYPositions);
+          matchCenterY = (minY + maxY) / 2;
+        } else {
+           const matchBlockH = boxH * 2 + boxGap;
+           matchCenterY = bracketStartY + node.position * (matchBlockH + vGap) + (matchBlockH / 2);
+        }
+      } else {
+        const matchBlockH = boxH * 2 + boxGap;
+        matchCenterY = bracketStartY + node.position * (matchBlockH + vGap) + (matchBlockH / 2);
+      }
+
+      const redY = matchCenterY - (boxGap / 2) - boxH;
+      const blueY = matchCenterY + (boxGap / 2);
+      const redCenterY = redY + (boxH / 2);
+      const blueCenterY = blueY + (boxH / 2);
+
+      entries.set(node.match.id, {
+        red: { x: roundX, y: redCenterY },
+        blue: { x: roundX, y: blueCenterY }
+      });
+
+      const m = node.match;
+
+      // --- LÓGICA PARA 'BYE' ---
+      // Si un participante no existe, es un BYE.
+      const isBye = !m.participantAkka || !m.participantAo;
+
+      // Por defecto, usamos los nombres que vienen en el match.
+      let akName = m.participantAkka ? `${m.participantAkka.student.firstname} ${m.participantAkka.student.lastname}` : '';
+      let akClub = m.participantAkka?.student?.academy?.name || '';
+      let aoName = m.participantAo ? `${m.participantAo.student.firstname} ${m.participantAo.student.lastname}` : '';
+      let aoClub = m.participantAo?.student?.academy?.name || '';
+
+      // Si es un BYE, el ganador (que es el único participante) no debe mostrarse
+      // en esta ronda inicial. Su nombre se renderizará en la siguiente ronda.
+      if (isBye) {
+        if (m.winnerId && m.winnerId === m.participantAkka?.id) {
+          akName = ''; // Ocultar nombre
+          akClub = ''; // Ocultar club
+        }
+        if (m.winnerId && m.winnerId === m.participantAo?.id) {
+          aoName = ''; // Ocultar nombre
+          aoClub = ''; // Ocultar club
+        }
+      }
+      // --- FIN LÓGICA 'BYE' ---
+
+      drawSingleBox(doc, roundX, redY, boxW, boxH, akName, akClub, m.scoreAkka, true, m.winnerId === m.participantAkka?.id, fontSize);
+      drawSingleBox(doc, roundX, blueY, boxW, boxH, aoName, aoClub, m.scoreAo, false, m.winnerId === m.participantAo?.id, fontSize);
+
+      // Corchete
+      const bracketDepth = 5;
+      const bracketX = roundX + boxW + bracketDepth;
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.5);
+      doc.line(roundX + boxW, redCenterY, bracketX, redCenterY);
+      doc.line(roundX + boxW, blueCenterY, bracketX, blueCenterY);
+      doc.line(bracketX, redCenterY, bracketX, blueCenterY);
+
+      exits.set(m.id, { x: bracketX, y: matchCenterY });
+    });
+  }
+
+  // Conectores
+  matches.forEach(m => {
+    if (m.nextMatchId) {
+      const start = exits.get(m.id);
+      const parentEntry = entries.get(m.nextMatchId);
+
+      if (start && parentEntry) {
+        const parentY = (parentEntry.red.y + parentEntry.blue.y) / 2;
+        const target = (start.y < parentY) ? parentEntry.red : parentEntry.blue;
+        const midX = (start.x + target.x) / 2;
+
+        doc.setDrawColor(100, 100, 100);
+        doc.setLineWidth(0.5);
+
+        doc.line(start.x, start.y, midX, start.y);
+        doc.line(midX, start.y, midX, target.y);
+        doc.line(midX, target.y, target.x, target.y);
+      }
+    }
+  });
 }
 
 // -----------------------------------------------------------------------------
-// BUILD PDF FINAL - TODO EN UNA PÁGINA
+// BUILD PDF
 // -----------------------------------------------------------------------------
 async function buildPdf(doc: jsPDF, matchesTotal: any[], championshipName: string, logoUrl?: string) {
   const grouped = groupByCategory(matchesTotal);
-
   let first = true;
 
   for (const [, matches] of grouped) {
     if (!first) doc.addPage();
     first = false;
 
-    // Información de categoría
     const rawCatFromMatch = matches[0]?.championshipCategory;
     const catId = matches[0]?.championshipCategoryId ?? rawCatFromMatch?.id;
     const storeCat = championshipStore.championshipCategories?.find((cc: any) => cc.id === catId);
@@ -399,41 +516,38 @@ async function buildPdf(doc: jsPDF, matchesTotal: any[], championshipName: strin
     await drawHeader(doc, championshipName, title, logoUrl);
 
     const participants = extractParticipants(matches);
-    const afterTableY = drawParticipantsTable(doc, participants, 70);
+    
+    // Aquí dibujamos la tabla. La función nos devuelve la Y final usada.
+    const afterTableY = drawParticipantsTable(doc, participants, 60);
 
-    // ✅ TODO EN LA MISMA PÁGINA - SIN doc.addPage()
-    drawBracket(doc, matches, afterTableY + 10);
+    // Dibujamos el bracket después de la tabla
+    drawBracket(doc, matches, afterTableY + 15);
   }
 }
 
 // -----------------------------------------------------------------------------
-// GENERAR PDF
+// GENERAR PDF (PORTRAIT)
 // -----------------------------------------------------------------------------
 async function exportPdf() {
   isGenerating.value = true;
-
   try {
     await championshipStore.fetchChampionshipCategories(props.championshipId, 1, 999);
-
     const allMatches: any[] = [];
-
     for (const c of championshipStore.championshipCategories) {
       const ms = await matchService.getBracketsByCategory(c.id);
       allMatches.push(...ms.map(m => ({ ...m, championshipCategory: m.championshipCategory || c })));
     }
 
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    // VOLVEMOS A PORTRAIT (VERTICAL)
+    const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
 
     await buildPdf(doc, allMatches, props.championshipName ?? "Campeonato de Karate", props.logoUrl);
 
-    const filename = `brackets_${Date.now()}.pdf`;
-    doc.save(filename);
-
+    doc.save(`brackets_${Date.now()}.pdf`);
   } catch (e) {
     console.error(e);
     alert("Error generando PDF");
   }
-
   isGenerating.value = false;
 }
 </script>

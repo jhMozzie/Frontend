@@ -1,7 +1,9 @@
 import axios from "axios"
 
+const BASE_URL = (import.meta.env.VITE_API_URL as string) || "https://backendtes-il2f.onrender.com/api"
+
 export const api = axios.create({
-  baseURL: "http://localhost:3000/api", // cambia si tu backend usa otro puerto
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

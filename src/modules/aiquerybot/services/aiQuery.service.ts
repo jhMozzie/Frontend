@@ -12,7 +12,7 @@ export const aiQueryService = {
   /**
    * Convierte texto natural a SQL (sin ejecutar)
    */
-  async convertToSQL(naturalQuery: string): Promise<ConvertToSQLResponse> {
+  async convertToSQL(naturalQuery: string): Promise<ConvertToSQLResponse>{
     const response = await axios.post(`${API_URL}/ai-query/convert`, {
       naturalQuery,
     });

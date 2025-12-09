@@ -185,7 +185,8 @@ const handlePrevious = () => {
 // 💡 HANDLESUBMIT ACTUALIZADO (ahora maneja Crear y Editar)
 const handleSubmit = async () => {
   // 1. Creamos el payload con todos los campos
-  const payload = {
+  // Construimos el payload de forma distinta para crear vs editar
+  const basePayload: any = {
     name: formData.value.name,
     description: formData.value.description,
     startDate: formData.value.startDate,
@@ -196,9 +197,17 @@ const handleSubmit = async () => {
     status: formData.value.status,
     referees: formData.value.referees,
     tatamis: formData.value.tatamis,
-    image: null, // Por ahora null, después implementar subida de imágenes
-    academyId: 1 // MVP - obtener del usuario logueado
+    academyId: 1, // MVP - obtener del usuario logueado
   }
+
+  // Si el usuario seleccionó un archivo, lo incluimos (service detectará File y enviará FormData)
+  if (formData.value.imageFile) {
+    basePayload.image = formData.value.imageFile
+  }
+
+  // En modo crear, si no hay imagen explícita, mandamos null para que backend sepa
+  // que no hay imagen. En modo editar, omitimos la clave para no sobrescribir.
+  const payload = isEditMode.value ? basePayload : { ...basePayload, image: basePayload.image ?? null }
 
   console.log('Enviando payload:', payload)
 

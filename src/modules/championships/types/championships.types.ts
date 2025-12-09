@@ -26,7 +26,8 @@ export interface CreateChampionshipDto {
   province?: string // Mantenemos opcional
   country?: string  // Mantenemos opcional
   description?: string // 👈 AÑADIDO (opcional al crear)
-  image?: string | null
+  // Frontend can send either a File (when uploading) or a string (existing URL) or null
+  image?: File | string | null
   status: string
   academyId: number
   referees: number
@@ -36,7 +37,7 @@ export interface CreateChampionshipDto {
 // ✅ DTOs para Actualizar
 // Partial hace que todos los campos sean opcionales
 export interface UpdateChampionshipDto extends Partial<CreateChampionshipDto> {
-    description?: string; // 👈 Asegurarse que esté aquí también (aunque Partial ya lo haría opcional)
+  description?: string // 👈 Asegurarse que esté aquí también (aunque Partial ya lo haría opcional)
 }
 
 // ✅ Respuesta paginada del backend (Sin cambios, ya usa Championship[])

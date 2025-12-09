@@ -184,7 +184,7 @@
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-500">
                   <LucideUsers class="w-4 h-4" />
-                  <span>{{ champ.academy }}</span>
+                  <span>{{ participantsCount[champ.id] ?? 0 }} inscritos</span>
                 </div>
               </div>
 
@@ -236,7 +236,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from "vue"
+import { ref, computed, onMounted, onBeforeUnmount, reactive } from "vue"
 import { RouterLink, useRouter } from "vue-router"
 import { storeToRefs } from "pinia"
 import {
@@ -258,12 +258,33 @@ import {
 
 import Pagination from "@/components/ui/Pagination.vue"
 import { useChampionshipStore } from "@/modules/championships/store/championships.store"
+import { participantService } from '@/modules/championships/services/participants.service'
 
 const championshipStore = useChampionshipStore()
 const { championships, loading, error } = storeToRefs(championshipStore)
 const { fetchChampionships, deleteChampionship } = championshipStore
 
 const router = useRouter()
+
+// Mapa de recuentos de inscritos por campeonato
+const participantsCount = reactive<Record<number, number>>({})
+
+// Función para cargar el total de inscritos para una lista de campeonatos
+async function loadParticipantsCounts(champs: Array<any>) {
+  try {
+    const promises = champs.map(async (c: any) => {
+      try {
+        const resp = await participantService.getPaginatedParticipants({ championshipId: c.id, page: 1, limit: 1 })
+        participantsCount[c.id] = resp.meta?.total ?? 0
+      } catch (err) {
+        participantsCount[c.id] = 0
+      }
+    })
+    await Promise.all(promises)
+  } catch (err) {
+    // noop
+  }
+}
 
 // --- Verificar si el usuario es administrador ---
 const userRole = ref(localStorage.getItem("userRole") || "")
@@ -287,7 +308,12 @@ const years = ["2024", "2025", "2026"]
 const statuses = ["Activo", "Próximo", "Inscripción Abierta", "Planificación"]
 
 onMounted(() => {
-  fetchChampionships(1, 999) 
+  fetchChampionships(1, 999).then(() => {
+    // Cargar contadores tras cargar campeonatos
+    if (championships.value && championships.value.length > 0) {
+      loadParticipantsCounts(championships.value)
+    }
+  })
 })
 
 // --- Filtros lógicos ---

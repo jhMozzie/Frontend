@@ -8,8 +8,8 @@
       <div class="flex items-center gap-3">
         <select v-model="selectedCategoryId" class="w-full sm:w-72 rounded-md border border-gray-300 py-2 px-3 text-sm focus:border-gray-400 focus:outline-none focus:ring-0" @change="handleCategoryChange">
           <option :value="null" disabled>Selecciona una categoría</option>
-          <option v-for="category in championshipStore.championshipCategories" :key="category.id" :value="category.id">
-            {{ category.modality }} {{ category.gender }} - {{ category.weight || category.ageRangeLabel }}
+          <option v-for="category in sortedCategories" :key="category.id" :value="category.id">
+            {{ formatCategoryLabel(category) }}
           </option>
         </select>
       </div>
@@ -72,11 +72,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import BracketNode from '@/modules/championships/components/brackets/BracketNode.vue';
 import BracketModal from '@/modules/championships/components/brackets/BracketModal.vue';
 import { useChampionshipStore } from '@/modules/championships/store/championships.store';
+import { beltsService } from '@/modules/championships/services/belts.service'
 import type { Match } from '@/modules/championships/types';
 
 const route = useRoute();
@@ -88,6 +89,51 @@ const selectedMatch = ref<MatchTransformed | null>(null)
 
 // Estado de categorías
 const selectedCategoryId = ref<number | null>(null)
+
+// Mapa de cinturones para ordenar (name -> kyuLevel)
+const beltMap = reactive<Record<string, number>>({})
+
+const sortedCategories = computed(() => {
+  const cats = championshipStore.championshipCategories.slice() || []
+  // If we have beltMap info, sort by beltMin kyuLevel then beltMax
+  if (Object.keys(beltMap).length > 0) {
+    return cats.sort((a: any, b: any) => {
+      const aMin = beltMap[a.beltMinName] ?? 0
+      const bMin = beltMap[b.beltMinName] ?? 0
+      if (aMin !== bMin) return aMin - bMin
+      const aMax = beltMap[a.beltMaxName] ?? 0
+      const bMax = beltMap[b.beltMaxName] ?? 0
+      return aMax - bMax
+    })
+  }
+  return cats
+})
+
+// Devuelve una versión corta del cinturón: preferimos usar beltMap (kyuLevel),
+// si no existe intentamos extraer un número Kyu del nombre (ej. "7mo Kyu")
+function beltShort(name?: string) {
+  if (!name) return ''
+  const lvl = beltMap[name]
+  if (typeof lvl === 'number' && !isNaN(lvl) && lvl > 0) return `${lvl}kyu`
+  // Intentar extraer patrón "7mo" o "5to" seguido de Kyu
+  const re = /([0-9]{1,2})\s*(?:mo|to|º)?\s*[kK]yu/;
+  const m = name.match(re)
+  if (m && m[1]) return `${m[1]}kyu`
+  // Si contiene "A" seguido de dígitos (ej. A1), devolver A1
+  const a = name.match(/A\d+/i)
+  if (a) return a[0].toUpperCase()
+  // Fallback: palabras principales (primeras 2) compactas
+  return name.split(' ').slice(0,2).join(' ')
+}
+
+function formatCategoryLabel(cat: any) {
+  const code = cat.code ? `${cat.code} - ` : ''
+  const min = beltShort(cat.beltMinName)
+  const max = beltShort(cat.beltMaxName)
+  const range = min && max ? `${min} hasta ${max}` : (min || max || '')
+  const suffix = cat.weight || cat.ageRangeLabel ? ` - ${cat.weight || cat.ageRangeLabel}` : ''
+  return `${code}${range}${suffix}`
+}
 
 // --- Tipos ---
 interface Competitor { 
@@ -370,6 +416,17 @@ const handleCategoryChange = async () => {
 onMounted(async () => {
   const championshipId = Number(route.params.id);
   
+    // Cargar cinturones para ordenar las categorías por kyuLevel
+    try {
+      const belts = await beltsService.getAll()
+      belts.forEach(b => {
+        if (b && b.name) beltMap[b.name] = (b.kyuLevel ?? 0)
+      })
+    } catch (err) {
+      // noop - si falla, seguimos sin ordenar por cinturones
+      console.warn('No se pudieron cargar cinturones para ordenar categorías', err)
+    }
+
   // Cargar categorías del campeonato
   if (championshipId) {
     await championshipStore.fetchChampionshipCategories(championshipId);
